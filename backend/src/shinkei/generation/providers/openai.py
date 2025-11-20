@@ -1,0 +1,413 @@
+"""OpenAI provider implementation."""
+from typing import AsyncGenerator, Optional
+from openai import AsyncOpenAI
+from shinkei.generation.base import (
+    NarrativeModel,
+    GenerationRequest,
+    GenerationResponse,
+    GenerationContext,
+    GenerationConfig,
+    GeneratedBeat,
+    ModificationContext,
+    ModifiedBeat
+)
+from shinkei.generation.beat_prompts import BeatGenerationPrompts
+from shinkei.logging_config import get_logger
+
+logger = get_logger(__name__)
+
+
+class OpenAIModel(NarrativeModel):
+    """OpenAI implementation of NarrativeModel."""
+
+    def __init__(self, api_key: str, model: Optional[str] = None):
+        """
+        Initialize OpenAI client.
+
+        Args:
+            api_key: OpenAI API key
+            model: Default model name (optional, defaults to gpt-4o)
+        """
+        self.client = AsyncOpenAI(api_key=api_key)
+        self.model = model or "gpt-4o"
+
+    async def generate(self, request: GenerationRequest) -> GenerationResponse:
+        """
+        Generate text using OpenAI.
+        """
+        model = request.model or "gpt-4o"
+        
+        messages = []
+        if request.system_prompt:
+            messages.append({"role": "system", "content": request.system_prompt})
+        messages.append({"role": "user", "content": request.prompt})
+
+        response = await self.client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=request.temperature,
+            max_tokens=request.max_tokens,
+            stop=request.stop_sequences if request.stop_sequences else None,
+        )
+
+        content = response.choices[0].message.content or ""
+        finish_reason = response.choices[0].finish_reason
+        
+        usage = {}
+        if response.usage:
+            usage = {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens,
+            }
+
+        return GenerationResponse(
+            content=content,
+            model_used=response.model,
+            usage=usage,
+            finish_reason=finish_reason,
+        )
+
+    async def stream(self, request: GenerationRequest) -> AsyncGenerator[str, None]:
+        """
+        Stream generated text using OpenAI.
+        """
+        model = request.model or "gpt-4o"
+        
+        messages = []
+        if request.system_prompt:
+            messages.append({"role": "system", "content": request.system_prompt})
+        messages.append({"role": "user", "content": request.prompt})
+
+        stream = self.client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=request.temperature,
+            max_tokens=request.max_tokens,
+            stop=request.stop_sequences if request.stop_sequences else None,
+            stream=True,
+        )
+
+        async for chunk in stream:
+            content = chunk.choices[0].delta.content
+            if content:
+                yield content
+
+    # Narrative-specific methods
+
+    async def generate_next_beat(
+        self,
+        context: GenerationContext,
+        config: GenerationConfig
+    ) -> GeneratedBeat:
+        """
+        Generate next narrative beat using OpenAI.
+
+        Args:
+            context: Full narrative context (World + Story + Beats)
+            config: Generation parameters
+
+        Returns:
+            GeneratedBeat with text, summary, time label, and metadata
+        """
+        # Build narrative-aware prompts
+        system_prompt = BeatGenerationPrompts.build_system_prompt(context)
+        user_prompt = BeatGenerationPrompts.build_user_prompt(context)
+
+        # Prepare messages
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+
+        # Use model from config, fallback to instance default
+        model = config.model or self.model
+
+        logger.info(
+            "generating_beat_with_openai",
+            story_title=context.story_title,
+            world_name=context.world_name,
+            model=model
+        )
+
+        try:
+            # Step 1: Generate AI reasoning/thoughts
+            reasoning_prompt = (
+                "Before generating the next beat, think step-by-step about:\n"
+                "1. How should the narrative continue given the world's tone and recent events?\n"
+                "2. What narrative tension or development is needed?\n"
+                "3. How can this beat advance the story while maintaining coherence?\n"
+                "4. What specific elements from the world laws and backdrop should influence this beat?\n\n"
+                "Provide your reasoning in 2-4 sentences."
+            )
+
+            reasoning_messages = messages + [{"role": "user", "content": reasoning_prompt}]
+
+            reasoning_response = await self.client.chat.completions.create(
+                model=model,
+                messages=reasoning_messages,
+                temperature=0.5,  # Lower temperature for coherent reasoning
+                max_tokens=300
+            )
+
+            reasoning = reasoning_response.choices[0].message.content or ""
+
+            # Step 2: Generate narrative text using reasoning as context
+            generation_messages = messages + [
+                {"role": "assistant", "content": reasoning},
+                {"role": "user", "content": "Now, write the narrative beat based on your reasoning above."}
+            ]
+
+            response = await self.client.chat.completions.create(
+                model=model,
+                messages=generation_messages,
+                temperature=config.temperature,
+                max_tokens=config.max_tokens,
+                top_p=config.top_p,
+                frequency_penalty=config.frequency_penalty,
+                presence_penalty=config.presence_penalty,
+                stop=config.stop_sequences
+            )
+
+            generated_text = response.choices[0].message.content or ""
+
+            # Generate summary
+            summary = await self.summarize(generated_text)
+
+            # Determine time label
+            local_time_label = BeatGenerationPrompts.build_time_label_prompt(context)
+
+            # Extract world event ID if present
+            world_event_id = None
+            if context.target_world_event:
+                world_event_id = context.target_world_event.get('id')
+
+            # Create metadata
+            metadata = {
+                "model": response.model,
+                "finish_reason": response.choices[0].finish_reason
+            }
+            if response.usage:
+                metadata.update({
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens
+                })
+
+            logger.info(
+                "beat_generated_successfully",
+                story_title=context.story_title,
+                total_tokens=metadata.get("total_tokens", 0)
+            )
+
+            return GeneratedBeat(
+                text=generated_text,
+                summary=summary,
+                local_time_label=local_time_label,
+                reasoning=reasoning,
+                world_event_id=world_event_id,
+                beat_type="scene",
+                metadata=metadata
+            )
+
+        except Exception as e:
+            logger.error("openai_beat_generation_error", error=str(e))
+            raise RuntimeError(f"Failed to generate beat with OpenAI: {str(e)}")
+
+    async def summarize(self, text: str) -> str:
+        """
+        Generate summary using OpenAI.
+
+        Args:
+            text: Narrative text to summarize
+
+        Returns:
+            2-3 sentence summary
+        """
+        prompt = BeatGenerationPrompts.build_summary_prompt(text)
+
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a concise summarizer. Create brief 2-3 sentence summaries."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.3,  # Lower temperature for consistency
+                max_tokens=150  # Short summary
+            )
+
+            summary = response.choices[0].message.content or "Summary generation failed."
+            return summary.strip()
+
+        except Exception as e:
+            logger.error("openai_summarization_error", error=str(e))
+            return "Summary generation failed."
+
+    async def modify_beat(
+        self,
+        context: ModificationContext,
+        config: GenerationConfig
+    ) -> ModifiedBeat:
+        """
+        Modify an existing story beat based on user instructions.
+
+        Args:
+            context: Modification context with original beat and instructions
+            config: Generation parameters
+
+        Returns:
+            ModifiedBeat with modified content, summary, and reasoning
+        """
+        model = config.model or self.model
+
+        logger.info(
+            "modifying_beat_with_openai",
+            story_title=context.story_title,
+            world_name=context.world_name,
+            model=model,
+            scope=context.scope
+        )
+
+        try:
+            # Build system prompt with world/story context
+            system_prompt = (
+                f"You are modifying a narrative beat from the story '{context.story_title}' "
+                f"set in the world '{context.world_name}'.\n\n"
+                f"World Tone: {context.world_tone}\n"
+                f"World Backdrop: {context.world_backdrop}\n"
+                f"World Laws: {context.world_laws}\n\n"
+                f"Story Synopsis: {context.story_synopsis}\n"
+                f"POV Type: {context.story_pov_type}\n\n"
+                "Your task is to modify the existing narrative beat according to user instructions "
+                "while maintaining narrative coherence, world rules, and the established tone."
+            )
+
+            # Step 1: Generate reasoning for modifications
+            reasoning_prompt = (
+                f"ORIGINAL BEAT:\n{context.original_content}\n\n"
+                f"MODIFICATION INSTRUCTIONS:\n{context.modification_instructions}\n\n"
+                "Before making changes, think step-by-step about:\n"
+                "1. What specific changes does the user want?\n"
+                "2. How can these changes be made while maintaining narrative coherence?\n"
+                "3. What impact will these modifications have on the story flow?\n"
+                "4. How can the world's tone and laws be preserved in the modifications?\n\n"
+                "Provide your reasoning in 2-4 sentences."
+            )
+
+            reasoning_messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": reasoning_prompt}
+            ]
+
+            reasoning_response = await self.client.chat.completions.create(
+                model=model,
+                messages=reasoning_messages,
+                temperature=0.5,  # Lower temperature for coherent reasoning
+                max_tokens=300
+            )
+
+            reasoning = reasoning_response.choices[0].message.content or ""
+
+            # Step 2: Generate modified content
+            modification_prompt = (
+                f"ORIGINAL BEAT:\n{context.original_content}\n\n"
+                f"MODIFICATION INSTRUCTIONS:\n{context.modification_instructions}\n\n"
+                f"YOUR REASONING:\n{reasoning}\n\n"
+                "Now, rewrite the beat according to the instructions and your reasoning. "
+                "Provide ONLY the modified narrative text, without any preamble or explanation."
+            )
+
+            modification_messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": modification_prompt}
+            ]
+
+            response = await self.client.chat.completions.create(
+                model=model,
+                messages=modification_messages,
+                temperature=config.temperature,
+                max_tokens=config.max_tokens,
+                top_p=config.top_p,
+                frequency_penalty=config.frequency_penalty,
+                presence_penalty=config.presence_penalty,
+            )
+
+            modified_content = response.choices[0].message.content or ""
+
+            # Step 3: Generate new summary if in scope
+            modified_summary = context.original_summary
+            if "summary" in context.scope:
+                modified_summary = await self.summarize(modified_content)
+
+            # Step 4: Update time label if in scope
+            modified_time_label = context.original_time_label
+            if "time_label" in context.scope and modified_time_label:
+                # Check if time label needs updating based on content changes
+                time_check_prompt = (
+                    f"Original time label: {context.original_time_label}\n"
+                    f"Original content: {context.original_content[:200]}...\n"
+                    f"Modified content: {modified_content[:200]}...\n\n"
+                    "Does the time label need to be updated based on the content changes? "
+                    "If yes, provide ONLY the new time label. If no, respond with 'NO_CHANGE'."
+                )
+
+                time_response = await self.client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": "You are a narrative timeline assistant."},
+                        {"role": "user", "content": time_check_prompt}
+                    ],
+                    temperature=0.3,
+                    max_tokens=50
+                )
+
+                time_result = (time_response.choices[0].message.content or "").strip()
+                if time_result != "NO_CHANGE":
+                    modified_time_label = time_result
+
+            # Step 5: World event link (preserve or None if in scope)
+            modified_world_event_id = context.original_world_event_id
+            if "world_event" in context.scope:
+                # For now, preserve the original. In future, could add logic to
+                # suggest different world events based on modifications
+                pass
+
+            # Create metadata
+            metadata = {
+                "model": response.model,
+                "finish_reason": response.choices[0].finish_reason
+            }
+            if response.usage:
+                metadata.update({
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens
+                })
+
+            logger.info(
+                "beat_modified_successfully",
+                story_title=context.story_title,
+                total_tokens=metadata.get("total_tokens", 0)
+            )
+
+            return ModifiedBeat(
+                modified_content=modified_content,
+                modified_summary=modified_summary,
+                modified_time_label=modified_time_label,
+                modified_world_event_id=modified_world_event_id,
+                reasoning=reasoning,
+                metadata=metadata
+            )
+
+        except Exception as e:
+            logger.error("openai_beat_modification_error", error=str(e))
+            raise RuntimeError(f"Failed to modify beat with OpenAI: {str(e)}")
