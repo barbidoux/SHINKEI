@@ -14,8 +14,24 @@ const initialState: AuthState = {
     isAuthenticated: false
 };
 
+// Initialize from localStorage immediately if available
+function getInitialState(): AuthState {
+    if (browser) {
+        const stored = localStorage.getItem('auth');
+        if (stored) {
+            try {
+                return JSON.parse(stored);
+            } catch (e) {
+                console.error('Failed to parse auth state', e);
+                localStorage.removeItem('auth');
+            }
+        }
+    }
+    return initialState;
+}
+
 function createAuthStore() {
-    const { subscribe, set, update } = writable<AuthState>(initialState);
+    const { subscribe, set, update } = writable<AuthState>(getInitialState());
 
     return {
         subscribe,

@@ -3,7 +3,7 @@
     import { goto } from "$app/navigation";
     import { onMount } from "svelte";
     import { api } from "$lib/api";
-    import { BeatModificationPanel } from "$lib/components";
+    import { BeatModificationPanel, CoherenceChecker } from "$lib/components";
     import AIThoughtsPanel from "$lib/components/AIThoughtsPanel.svelte";
     import type { BeatType, StoryBeat, WorldEvent, BeatResponse } from "$lib/types";
 
@@ -281,6 +281,13 @@
                         beat = updatedBeat;
                     }}
                 />
+            </div>
+        {/if}
+
+        <!-- Coherence Checker -->
+        {#if beat}
+            <div class="mt-6">
+                <CoherenceChecker storyId={storyId} beatId={beatId} />
             </div>
         {/if}
     </div>

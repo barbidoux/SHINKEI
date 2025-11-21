@@ -2,6 +2,7 @@
 from datetime import datetime
 from typing import Optional
 from sqlalchemy import String, Text, ForeignKey, DateTime, func, Enum as SQLEnum
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from shinkei.database.engine import Base
 import uuid
@@ -100,6 +101,19 @@ class Story(Base):
         nullable=False,
         default=POVType.THIRD,
         comment="Point of view type for narrative"
+    )
+
+    tags: Mapped[list[str]] = mapped_column(
+        ARRAY(String),
+        nullable=False,
+        default=list,
+        comment="Tags for categorizing and organizing stories"
+    )
+
+    archived_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Timestamp when story was archived (soft delete)"
     )
 
     created_at: Mapped[datetime] = mapped_column(

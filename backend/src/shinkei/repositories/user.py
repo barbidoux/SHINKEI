@@ -24,24 +24,25 @@ class UserRepository:
     async def create(self, user_data: UserCreate) -> User:
         """
         Create a new user.
-        
+
         Args:
             user_data: User creation data
-            
+
         Returns:
             Created user instance
         """
         user = User(
             id=user_data.id,
-            email=user_data.email,
+            email=user_data.email.lower().strip(),  # Normalize to lowercase
+            password_hash=user_data.password_hash,
             name=user_data.name,
             settings=user_data.settings.model_dump(),
         )
-        
+
         self.session.add(user)
         await self.session.flush()
         await self.session.refresh(user)
-        
+
         logger.info("user_created", user_id=user.id, email=user.email)
         return user
     
@@ -62,16 +63,19 @@ class UserRepository:
     
     async def get_by_email(self, email: str) -> Optional[User]:
         """
-        Get user by email address.
-        
+        Get user by email address (case-insensitive).
+
         Args:
             email: User email address
-            
+
         Returns:
             User instance or None if not found
         """
+        # Normalize email to lowercase for case-insensitive lookup
+        normalized_email = email.lower().strip()
+
         result = await self.session.execute(
-            select(User).where(User.email == email)
+            select(User).where(User.email == normalized_email)
         )
         return result.scalar_one_or_none()
     

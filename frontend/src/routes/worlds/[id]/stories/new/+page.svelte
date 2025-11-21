@@ -2,18 +2,54 @@
     import { page } from "$app/stores";
     import { api } from "$lib/api";
     import { goto } from "$app/navigation";
-    import type { AuthoringMode, POVType } from "$lib/types";
+    import { onMount } from "svelte";
+    import type { AuthoringMode, POVType, StoryTemplate } from "$lib/types";
     import { AUTHORING_MODE_LABELS, POV_TYPE_LABELS } from "$lib/types";
+    import TagInput from "$lib/components/TagInput.svelte";
 
     let title = "";
     let synopsis = "";
     let theme = "";
     let mode: AuthoringMode = "manual";
     let pov_type: POVType = "third";
+    let tags: string[] = [];
     let loading = false;
+    let loadingTemplates = true;
     let error = "";
+    let selectedTemplate: string = "";
+    let templates: Record<string, StoryTemplate> = {};
 
     $: worldId = $page.params.id;
+
+    onMount(async () => {
+        try {
+            const response = await api.get<{ templates: Record<string, StoryTemplate> }>('/stories/templates');
+            templates = response.templates;
+            loadingTemplates = false;
+        } catch (e) {
+            console.error('Failed to load templates:', e);
+            loadingTemplates = false;
+        }
+    });
+
+    function applyTemplate(templateId: string) {
+        if (!templateId || templateId === "") {
+            return;
+        }
+
+        const template = templates[templateId];
+        if (template) {
+            synopsis = template.synopsis || "";
+            theme = template.theme || "";
+            mode = template.mode;
+            pov_type = template.pov_type;
+            tags = template.suggested_tags || [];
+        }
+    }
+
+    $: if (selectedTemplate) {
+        applyTemplate(selectedTemplate);
+    }
 
     async function handleSubmit() {
         loading = true;
@@ -28,6 +64,7 @@
                     status: "draft",
                     mode,
                     pov_type,
+                    tags,
                 },
             );
             goto(`/stories/${story.id}`);
@@ -54,6 +91,34 @@
         on:submit|preventDefault={handleSubmit}
         class="space-y-6 bg-white shadow sm:rounded-lg p-6"
     >
+        <!-- Template Selector -->
+        <div>
+            <label
+                for="template"
+                class="block text-sm font-medium leading-6 text-gray-900"
+                >Story Template (optional)</label
+            >
+            <div class="mt-2">
+                <select
+                    id="template"
+                    name="template"
+                    bind:value={selectedTemplate}
+                    disabled={loadingTemplates}
+                    class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 disabled:opacity-50"
+                >
+                    <option value="">Start from scratch</option>
+                    {#each Object.entries(templates) as [id, template]}
+                        <option value={id}>{template.name}</option>
+                    {/each}
+                </select>
+            </div>
+            {#if selectedTemplate && templates[selectedTemplate]}
+                <p class="mt-1 text-sm text-gray-500">
+                    {templates[selectedTemplate].description}
+                </p>
+            {/if}
+        </div>
+
         <div>
             <label
                 for="title"
@@ -104,6 +169,19 @@
                     bind:value={theme}
                 />
             </div>
+        </div>
+
+        <!-- Tags -->
+        <div>
+            <label class="block text-sm font-medium leading-6 text-gray-900">
+                Tags (optional)
+            </label>
+            <div class="mt-2">
+                <TagInput bind:tags {worldId} />
+            </div>
+            <p class="mt-1 text-sm text-gray-500">
+                Add tags to organize and categorize your story
+            </p>
         </div>
 
         <div>

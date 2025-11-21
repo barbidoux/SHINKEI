@@ -11,7 +11,7 @@ import uuid
 class WorldEvent(Base):
     """
     WorldEvent model representing a canonical event in world's timeline.
-    
+
     Attributes:
         id: Unique identifier
         world_id: Foreign key to world
@@ -21,6 +21,7 @@ class WorldEvent(Base):
         type: Event type (incident, glitch, meeting, etc.)
         summary: Brief description of the event
         tags: Array of tags for categorization
+        caused_by_ids: Array of event IDs that caused this event (dependency graph)
         created_at: Timestamp of creation
         updated_at: Timestamp of last update
     """
@@ -77,7 +78,14 @@ class WorldEvent(Base):
         default=list,
         comment="Tags for categorization"
     )
-    
+
+    caused_by_ids: Mapped[list[str]] = mapped_column(
+        ARRAY(String),
+        nullable=False,
+        default=list,
+        comment="IDs of events that caused this event (dependency graph)"
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

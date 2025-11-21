@@ -16,29 +16,42 @@ logger = get_logger(__name__)
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(
     user_in: UserCreate,
+    current_user: Annotated[User, Depends(get_current_user)],  # ← SECURITY FIX: Require authentication
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> User:
     """
-    Register a new user.
-    
-    This endpoint is used to sync a user from Supabase Auth to our database.
-    In a real production flow, this might be handled by a Supabase webhook,
-    but for now, the frontend can call this after successful signup.
+    Create a new user (admin only).
+
+    ⚠️ SECURITY: This endpoint now requires authentication.
+    Regular users should use /auth/register for self-registration.
+    This endpoint is for administrative user creation or Supabase webhook sync.
+
+    NOTE: In production, implement role-based access control (RBAC)
+    to restrict this to admin users only.
     """
     repo = UserRepository(session)
-    
+
     # Check if user already exists (by email)
     existing_user = await repo.get_by_email(user_in.email)
     if existing_user:
+        logger.warning(
+            "user_creation_duplicate_attempt",
+            email=user_in.email,
+            requested_by=current_user.id
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User with this email already exists",
         )
-        
+
     # We might also want to check if ID exists if provided, but repo.create handles that constraints
-    
+
     user = await repo.create(user_in)
-    logger.info("user_registered", user_id=user.id)
+    logger.info(
+        "user_created_by_admin",
+        user_id=user.id,
+        created_by=current_user.id
+    )
     return user
 
 

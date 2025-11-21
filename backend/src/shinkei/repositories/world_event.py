@@ -40,6 +40,7 @@ class WorldEventRepository:
             type=event_data.type,
             summary=event_data.summary,
             tags=event_data.tags,
+            caused_by_ids=event_data.caused_by_ids,
         )
         
         self.session.add(event)

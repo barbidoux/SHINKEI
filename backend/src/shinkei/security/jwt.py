@@ -1,6 +1,7 @@
 """Enhanced JWT security utilities."""
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Any
+import uuid
 from jose import jwt, JWTError
 from jose.exceptions import JWSError
 from shinkei.config import settings
@@ -41,6 +42,7 @@ def create_access_token(
         "exp": expire,
         "iat": datetime.utcnow(),  # Issued at
         "type": "access",  # Token type
+        "jti": str(uuid.uuid4()),  # SECURITY FIX: Unique token identifier for blacklisting
     }
 
     # Add additional claims if provided
@@ -80,6 +82,7 @@ def create_refresh_token(
         "exp": expire,
         "iat": datetime.utcnow(),
         "type": "refresh",  # Explicitly mark as refresh token
+        "jti": str(uuid.uuid4()),  # SECURITY FIX: Unique token identifier for blacklisting
     }
 
     if additional_claims:

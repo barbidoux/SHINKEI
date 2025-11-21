@@ -12,6 +12,7 @@ class WorldEventBase(BaseModel):
     type: str = Field(..., min_length=1, max_length=100)
     summary: str = Field(..., min_length=1)
     tags: list[str] = Field(default_factory=list)
+    caused_by_ids: list[str] = Field(default_factory=list, description="IDs of events that caused this event")
 
 
 class WorldEventCreate(WorldEventBase):
@@ -22,13 +23,14 @@ class WorldEventCreate(WorldEventBase):
 class WorldEventUpdate(BaseModel):
     """Schema for updating a world event."""
     model_config = ConfigDict(extra='forbid')
-    
+
     t: Optional[float] = None
     label_time: Optional[str] = Field(None, min_length=1, max_length=255)
     location_id: Optional[str] = None
     type: Optional[str] = Field(None, min_length=1, max_length=100)
     summary: Optional[str] = Field(None, min_length=1)
     tags: Optional[list[str]] = None
+    caused_by_ids: Optional[list[str]] = Field(None, description="IDs of events that caused this event")
 
 
 class WorldEventResponse(WorldEventBase):

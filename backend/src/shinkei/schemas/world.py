@@ -56,3 +56,11 @@ class WorldListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class WorldImportData(BaseModel):
+    """Schema for importing world data."""
+    version: str
+    world: dict
+    world_events: list[dict]
+    stories: list[dict]

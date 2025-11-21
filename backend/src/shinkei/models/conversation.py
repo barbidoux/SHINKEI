@@ -134,7 +134,6 @@ class ConversationMessage(Base):
         String(36),
         ForeignKey("conversations.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
         comment="Conversation ID this message belongs to"
     )
 

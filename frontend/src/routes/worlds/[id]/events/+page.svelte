@@ -3,14 +3,14 @@
     import { onMount } from "svelte";
     import { goto } from "$app/navigation";
     import { api } from "$lib/api";
-    import { WorldEventTimeline, StoryIntersectionView } from "$lib/components";
+    import { WorldEventTimeline, StoryIntersectionView, EventDependencyGraph } from "$lib/components";
     import type { WorldEvent, World } from "$lib/types";
 
     let world: World | null = null;
     let events: WorldEvent[] = [];
     let loading = true;
     let error = "";
-    let viewMode: "list" | "timeline" = "list";
+    let viewMode: "list" | "timeline" | "graph" = "list";
     let showIntersection = false;
     let selectedEvent: WorldEvent | null = null;
 
@@ -19,8 +19,8 @@
     // Load view preference from localStorage
     onMount(() => {
         const savedView = localStorage.getItem("worldEventsViewMode");
-        if (savedView === "timeline" || savedView === "list") {
-            viewMode = savedView;
+        if (savedView === "timeline" || savedView === "list" || savedView === "graph") {
+            viewMode = savedView as "list" | "timeline" | "graph";
         }
     });
 
@@ -132,9 +132,16 @@
                     <button
                         type="button"
                         on:click={() => (viewMode = "timeline")}
-                        class="px-4 py-2 text-sm font-medium rounded-r-lg border border-gray-300 border-l-0 {viewMode === 'timeline' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}"
+                        class="px-4 py-2 text-sm font-medium border border-gray-300 border-l-0 {viewMode === 'timeline' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}"
                     >
                         Timeline View
+                    </button>
+                    <button
+                        type="button"
+                        on:click={() => (viewMode = "graph")}
+                        class="px-4 py-2 text-sm font-medium rounded-r-lg border border-gray-300 border-l-0 {viewMode === 'graph' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}"
+                    >
+                        Dependency Graph
                     </button>
                 </div>
             </div>
@@ -143,6 +150,11 @@
         <!-- Timeline View -->
         {#if viewMode === "timeline"}
             <WorldEventTimeline {events} onEventClick={handleEventClick} />
+        {:else if viewMode === "graph"}
+            <!-- Dependency Graph View -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <EventDependencyGraph {worldId} apiUrl={import.meta.env.VITE_API_URL} />
+            </div>
         {:else}
             <!-- List View -->
             <div class="space-y-4">

@@ -23,6 +23,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """Schema for creating a new user."""
     id: Optional[str] = None  # Will be provided by Supabase Auth
+    password_hash: str = Field(..., min_length=1)
 
 
 class UserUpdate(BaseModel):

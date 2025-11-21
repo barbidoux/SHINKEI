@@ -171,8 +171,12 @@ class OpenAIModel(NarrativeModel):
 
             generated_text = response.choices[0].message.content or ""
 
-            # Generate summary
-            summary = await self.summarize(generated_text)
+            # Generate summary and determine beat type in parallel
+            summary_task = self.summarize(generated_text)
+            beat_type_task = self.determine_beat_type(generated_text, context)
+
+            summary = await summary_task
+            beat_type = await beat_type_task
 
             # Determine time label
             local_time_label = BeatGenerationPrompts.build_time_label_prompt(context)
@@ -197,6 +201,7 @@ class OpenAIModel(NarrativeModel):
             logger.info(
                 "beat_generated_successfully",
                 story_title=context.story_title,
+                beat_type=beat_type,
                 total_tokens=metadata.get("total_tokens", 0)
             )
 
@@ -206,7 +211,7 @@ class OpenAIModel(NarrativeModel):
                 local_time_label=local_time_label,
                 reasoning=reasoning,
                 world_event_id=world_event_id,
-                beat_type="scene",
+                beat_type=beat_type,
                 metadata=metadata
             )
 
@@ -251,6 +256,59 @@ class OpenAIModel(NarrativeModel):
         except Exception as e:
             logger.error("openai_summarization_error", error=str(e))
             return "Summary generation failed."
+
+    async def determine_beat_type(self, text: str, context: GenerationContext) -> str:
+        """
+        Determine appropriate beat type using AI.
+
+        Args:
+            text: Narrative text to classify
+            context: Generation context for additional hints
+
+        Returns:
+            Beat type: "scene", "summary", or "note"
+        """
+        prompt = f"""Classify this narrative beat into ONE of these types:
+- "scene": Detailed, immersive narrative with dialogue, action, and sensory details
+- "summary": Condensed recap of events or time passage
+- "note": Brief observation, thought, or transitional text
+
+TEXT:
+{text[:500]}...
+
+Respond with ONLY one word: scene, summary, or note."""
+
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a narrative classification assistant. Analyze text and identify its narrative type."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.2,  # Very low temperature for consistent classification
+                max_tokens=10
+            )
+
+            beat_type = (response.choices[0].message.content or "scene").strip().lower()
+
+            # Validate response is one of the valid types
+            if beat_type not in ["scene", "summary", "note"]:
+                logger.warning(f"Invalid beat_type '{beat_type}' returned, defaulting to 'scene'")
+                return "scene"
+
+            return beat_type
+
+        except Exception as e:
+            logger.error("openai_beat_type_determination_error", error=str(e))
+            return "scene"  # Default fallback
 
     async def modify_beat(
         self,
@@ -411,3 +469,182 @@ class OpenAIModel(NarrativeModel):
         except Exception as e:
             logger.error("openai_beat_modification_error", error=str(e))
             raise RuntimeError(f"Failed to modify beat with OpenAI: {str(e)}")
+
+    async def generate_next_beat_stream(
+        self,
+        context: GenerationContext,
+        config: GenerationConfig
+    ) -> AsyncGenerator[str, None]:
+        """
+        Stream the next narrative beat content progressively.
+
+        Args:
+            context: Full narrative context (World + Story + Beats)
+            config: Generation parameters
+
+        Yields:
+            Content chunks as they're generated
+        """
+        # Build narrative-aware prompts
+        system_prompt = BeatGenerationPrompts.build_system_prompt(context)
+        user_prompt = BeatGenerationPrompts.build_user_prompt(context)
+
+        # Prepare messages
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+
+        # Use model from config, fallback to instance default
+        model = config.model or self.model
+
+        logger.info(
+            "streaming_beat_with_openai",
+            story_title=context.story_title,
+            world_name=context.world_name,
+            model=model
+        )
+
+        try:
+            # Step 1: Generate AI reasoning/thoughts (non-streaming)
+            reasoning_prompt = (
+                "Before generating the next beat, think step-by-step about:\n"
+                "1. How should the narrative continue given the world's tone and recent events?\n"
+                "2. What narrative tension or development is needed?\n"
+                "3. How can this beat advance the story while maintaining coherence?\n"
+                "4. What specific elements from the world laws and backdrop should influence this beat?\n\n"
+                "Provide your reasoning in 2-4 sentences."
+            )
+
+            reasoning_messages = messages + [{"role": "user", "content": reasoning_prompt}]
+
+            reasoning_response = await self.client.chat.completions.create(
+                model=model,
+                messages=reasoning_messages,
+                temperature=0.5,  # Lower temperature for coherent reasoning
+                max_tokens=300
+            )
+
+            reasoning = reasoning_response.choices[0].message.content or ""
+
+            # Step 2: Stream narrative text using reasoning as context
+            generation_messages = messages + [
+                {"role": "assistant", "content": reasoning},
+                {"role": "user", "content": "Now, write the narrative beat based on your reasoning above."}
+            ]
+
+            stream = await self.client.chat.completions.create(
+                model=model,
+                messages=generation_messages,
+                temperature=config.temperature,
+                max_tokens=config.max_tokens,
+                top_p=config.top_p,
+                frequency_penalty=config.frequency_penalty,
+                presence_penalty=config.presence_penalty,
+                stop=config.stop_sequences,
+                stream=True
+            )
+
+            async for chunk in stream:
+                content = chunk.choices[0].delta.content
+                if content:
+                    yield content
+
+            logger.info(
+                "beat_streaming_completed",
+                story_title=context.story_title
+            )
+
+        except Exception as e:
+            logger.error("openai_beat_streaming_error", error=str(e))
+            raise RuntimeError(f"Failed to stream beat with OpenAI: {str(e)}")
+
+    async def generate_beat_metadata(
+        self,
+        content: str,
+        context: GenerationContext
+    ) -> GeneratedBeat:
+        """
+        Generate metadata (summary, time label, reasoning) for already-generated content.
+
+        Args:
+            content: The full beat content that was generated
+            context: Narrative context for coherent metadata generation
+
+        Returns:
+            GeneratedBeat with empty text field but populated metadata fields
+        """
+        model = self.model
+
+        logger.info(
+            "generating_beat_metadata_with_openai",
+            story_title=context.story_title,
+            world_name=context.world_name,
+            model=model
+        )
+
+        try:
+            # Generate summary, beat type, and reasoning in parallel
+            summary_task = self.summarize(content)
+            beat_type_task = self.determine_beat_type(content, context)
+
+            summary = await summary_task
+            beat_type = await beat_type_task
+
+            # Determine time label
+            local_time_label = BeatGenerationPrompts.build_time_label_prompt(context)
+
+            # Extract world event ID if present
+            world_event_id = None
+            if context.target_world_event:
+                world_event_id = context.target_world_event.get('id')
+
+            # Generate reasoning for this beat
+            reasoning_prompt = (
+                f"You just generated the following narrative beat:\n\n{content}\n\n"
+                "In 2-3 sentences, explain your narrative reasoning: "
+                "What was your intent with this beat? How does it advance the story?"
+            )
+
+            system_prompt = BeatGenerationPrompts.build_system_prompt(context)
+
+            reasoning_messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": reasoning_prompt}
+            ]
+
+            reasoning_response = await self.client.chat.completions.create(
+                model=model,
+                messages=reasoning_messages,
+                temperature=0.5,
+                max_tokens=200
+            )
+
+            reasoning = reasoning_response.choices[0].message.content or ""
+
+            # Create metadata
+            metadata = {
+                "model": model,
+                "content_length": len(content),
+                "word_count": len(content.split())
+            }
+
+            logger.info(
+                "beat_metadata_generated_successfully",
+                story_title=context.story_title,
+                beat_type=beat_type
+            )
+
+            return GeneratedBeat(
+                text="",  # Empty text field as content is already generated
+                summary=summary,
+                local_time_label=local_time_label,
+                reasoning=reasoning,
+                world_event_id=world_event_id,
+                beat_type=beat_type,
+                metadata=metadata
+            )
+
+        except Exception as e:
+            logger.error("openai_metadata_generation_error", error=str(e))
+            raise RuntimeError(f"Failed to generate beat metadata with OpenAI: {str(e)}")

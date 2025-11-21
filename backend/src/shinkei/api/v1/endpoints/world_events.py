@@ -18,6 +18,56 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
+async def _would_create_cycle(
+    event_id: str,
+    new_cause_id: str,
+    session: AsyncSession
+) -> bool:
+    """
+    Check if adding new_cause_id as a dependency of event_id would create a cycle.
+
+    Uses DFS to detect if new_cause_id has event_id in its transitive dependencies.
+
+    Args:
+        event_id: The event that would have the new dependency
+        new_cause_id: The event ID to add as a cause
+        session: Database session
+
+    Returns:
+        True if adding the dependency would create a cycle, False otherwise
+    """
+    # Simple self-reference check
+    if event_id == new_cause_id:
+        return True
+
+    # DFS to find if event_id is reachable from new_cause_id
+    repo = WorldEventRepository(session)
+    visited = set()
+    stack = [new_cause_id]
+
+    while stack:
+        current_id = stack.pop()
+
+        if current_id in visited:
+            continue
+
+        # If we reach the target event, we found a cycle
+        if current_id == event_id:
+            return True
+
+        visited.add(current_id)
+
+        # Get current event and its causes
+        current_event = await repo.get_by_id(current_id)
+        if current_event and current_event.caused_by_ids:
+            # Add all causes to the stack
+            for cause_id in current_event.caused_by_ids:
+                if cause_id not in visited:
+                    stack.append(cause_id)
+
+    return False
+
+
 @router.post("/worlds/{world_id}/events", response_model=WorldEventResponse, status_code=status.HTTP_201_CREATED)
 async def create_world_event(
     world_id: str,
@@ -172,3 +222,128 @@ async def delete_world_event(
         
     await repo.delete(event_id)
     logger.info("world_event_deleted", event_id=event_id)
+
+
+# ===== Event Dependency Endpoints =====
+
+@router.post("/events/{event_id}/dependencies/{cause_event_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def add_event_dependency(
+    event_id: str,
+    cause_event_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> None:
+    """
+    Add a dependency relationship: cause_event_id causes event_id.
+
+    Creates a causal link where cause_event_id is a cause/trigger for event_id.
+    """
+    repo = WorldEventRepository(session)
+    event = await repo.get_by_id(event_id)
+    cause_event = await repo.get_by_id(cause_event_id)
+
+    if not event:
+        raise HTTPException(status_code=404, detail="Effect event not found")
+    if not cause_event:
+        raise HTTPException(status_code=404, detail="Cause event not found")
+
+    # Verify both events belong to same world
+    if event.world_id != cause_event.world_id:
+        raise HTTPException(status_code=400, detail="Events must belong to the same world")
+
+    # Verify ownership
+    world_repo = WorldRepository(session)
+    world = await world_repo.get_by_id(event.world_id)
+    if not world or world.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this world's events")
+
+    # Prevent circular dependencies (full cycle detection)
+    if await _would_create_cycle(event_id, cause_event_id, session):
+        raise HTTPException(
+            status_code=400,
+            detail="Adding this dependency would create a circular dependency in the event graph"
+        )
+
+    # Add dependency if not already present
+    if cause_event_id not in event.caused_by_ids:
+        event.caused_by_ids = [*event.caused_by_ids, cause_event_id]
+        await session.commit()
+        logger.info("event_dependency_added", event_id=event_id, cause_event_id=cause_event_id)
+
+
+@router.delete("/events/{event_id}/dependencies/{cause_event_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_event_dependency(
+    event_id: str,
+    cause_event_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> None:
+    """
+    Remove a dependency relationship between two events.
+    """
+    repo = WorldEventRepository(session)
+    event = await repo.get_by_id(event_id)
+
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # Verify ownership
+    world_repo = WorldRepository(session)
+    world = await world_repo.get_by_id(event.world_id)
+    if not world or world.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this world's events")
+
+    # Remove dependency if present
+    if cause_event_id in event.caused_by_ids:
+        event.caused_by_ids = [id for id in event.caused_by_ids if id != cause_event_id]
+        await session.commit()
+        logger.info("event_dependency_removed", event_id=event_id, cause_event_id=cause_event_id)
+
+
+@router.get("/worlds/{world_id}/events/dependency-graph")
+async def get_event_dependency_graph(
+    world_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    """
+    Get the full event dependency graph for a world.
+
+    Returns a graph structure with nodes (events) and edges (dependencies).
+    """
+    world_repo = WorldRepository(session)
+    world = await world_repo.get_by_id(world_id)
+    if not world:
+        raise HTTPException(status_code=404, detail="World not found")
+    if world.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this world")
+
+    repo = WorldEventRepository(session)
+    events, total = await repo.list_by_world(world_id, skip=0, limit=1000)
+
+    # Build graph structure
+    nodes = [
+        {
+            "id": event.id,
+            "label": event.label_time,
+            "t": event.t,
+            "type": event.type,
+            "summary": event.summary
+        }
+        for event in events
+    ]
+
+    edges = []
+    for event in events:
+        for cause_id in event.caused_by_ids:
+            edges.append({
+                "source": cause_id,  # Cause event
+                "target": event.id,  # Effect event
+                "type": "causes"
+            })
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "world_id": world_id
+    }

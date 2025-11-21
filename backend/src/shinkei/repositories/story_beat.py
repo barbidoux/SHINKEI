@@ -26,27 +26,38 @@ class StoryBeatRepository:
     async def create(self, story_id: str, beat_data: StoryBeatCreate) -> StoryBeat:
         """
         Create a new story beat.
-        
+
+        If order_index is 0 (default), automatically append to end of story.
+
         Args:
             story_id: Story UUID
             beat_data: Beat creation data
-            
+
         Returns:
             Created story beat instance
         """
+        # If order_index is 0 (default), append to end
+        order_index = beat_data.order_index
+        if order_index == 0:
+            order_index = await self.get_last_order_index(story_id) + 1
+
         beat = StoryBeat(
             story_id=story_id,
-            order_index=beat_data.order_index,
+            order_index=order_index,
             content=beat_data.content,
             type=BeatType(beat_data.type),
             world_event_id=beat_data.world_event_id,
+            summary=beat_data.summary,
+            local_time_label=beat_data.local_time_label,
+            generated_by=beat_data.generated_by,
+            generation_reasoning=beat_data.generation_reasoning,
         )
-        
+
         self.session.add(beat)
         await self.session.flush()
         await self.session.refresh(beat)
-        
-        logger.info("story_beat_created", beat_id=beat.id, story_id=story_id)
+
+        logger.info("story_beat_created", beat_id=beat.id, story_id=story_id, order_index=order_index)
         return beat
     
     async def get_by_id(self, beat_id: str) -> Optional[StoryBeat]:
@@ -174,6 +185,108 @@ class StoryBeatRepository:
 
         await self.session.flush()
         return True
+
+    async def get_beat_order_index(self, beat_id: str) -> Optional[int]:
+        """
+        Get the order_index of a specific beat.
+
+        Args:
+            beat_id: StoryBeat UUID
+
+        Returns:
+            order_index value or None if beat not found
+        """
+        beat = await self.get_by_id(beat_id)
+        return beat.order_index if beat else None
+
+    async def get_last_order_index(self, story_id: str) -> int:
+        """
+        Get the highest order_index in a story.
+
+        Args:
+            story_id: Story UUID
+
+        Returns:
+            Highest order_index value, or 0 if story has no beats
+        """
+        result = await self.session.execute(
+            select(func.max(StoryBeat.order_index))
+            .where(StoryBeat.story_id == story_id)
+        )
+        max_index = result.scalar_one_or_none()
+        return max_index if max_index is not None else 0
+
+    async def insert_at_position(
+        self,
+        story_id: str,
+        position: int,
+        beat_data: StoryBeatCreate
+    ) -> StoryBeat:
+        """
+        Insert a beat at a specific position, reindexing subsequent beats.
+
+        This method:
+        1. Increments order_index of all beats at position and above
+        2. Inserts the new beat at the specified position
+        3. Ensures consistent ordering
+
+        Args:
+            story_id: Story UUID
+            position: 1-based position to insert at (1 = first beat)
+            beat_data: Beat creation data
+
+        Returns:
+            Created story beat instance
+
+        Raises:
+            ValueError: If position is invalid (<1)
+        """
+        if position < 1:
+            raise ValueError(f"Position must be >= 1, got {position}")
+
+        # Get all beats at or after the insertion position
+        result = await self.session.execute(
+            select(StoryBeat)
+            .where(
+                StoryBeat.story_id == story_id,
+                StoryBeat.order_index >= position
+            )
+            .order_by(StoryBeat.order_index.asc())
+        )
+        beats_to_reindex = list(result.scalars().all())
+
+        # Increment order_index of all affected beats
+        for beat in beats_to_reindex:
+            beat.order_index += 1
+
+        await self.session.flush()
+
+        # Create new beat at the specified position
+        beat = StoryBeat(
+            story_id=story_id,
+            order_index=position,
+            content=beat_data.content,
+            type=BeatType(beat_data.type),
+            world_event_id=beat_data.world_event_id,
+            summary=beat_data.summary,
+            local_time_label=beat_data.local_time_label,
+            generated_by=beat_data.generated_by,
+            generation_reasoning=beat_data.generation_reasoning
+        )
+
+        self.session.add(beat)
+        await self.session.flush()
+        await self.session.refresh(beat)
+
+        logger.info(
+            "story_beat_inserted",
+            beat_id=beat.id,
+            story_id=story_id,
+            position=position,
+            reindexed_count=len(beats_to_reindex)
+        )
+
+        return beat
 
     async def list_by_world_event(self, event_id: str) -> list[StoryBeat]:
         """

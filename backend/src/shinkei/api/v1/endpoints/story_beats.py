@@ -222,7 +222,7 @@ async def reorder_story_beats(
         await session.commit()
 
         # Fetch updated beats
-        updated_beats = await repo.list_by_story(story_id)
+        updated_beats, _ = await repo.list_by_story(story_id)
 
         logger.info(
             "story_beats_reordered",

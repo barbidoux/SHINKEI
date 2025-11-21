@@ -209,3 +209,44 @@ class NarrativeModel(ABC):
             ModifiedBeat with modified content, summary, and reasoning
         """
         pass
+
+    @abstractmethod
+    async def generate_next_beat_stream(
+        self,
+        context: GenerationContext,
+        config: GenerationConfig
+    ) -> AsyncGenerator[str, None]:
+        """
+        Stream the next story beat content progressively.
+
+        Similar to generate_next_beat but yields content tokens as they're generated,
+        allowing for real-time display in the UI.
+
+        Args:
+            context: Full narrative context (World + Story + Beats)
+            config: Generation parameters (temperature, tokens, etc.)
+
+        Yields:
+            Content chunks as they're generated
+        """
+        pass
+
+    @abstractmethod
+    async def generate_beat_metadata(
+        self,
+        content: str,
+        context: GenerationContext
+    ) -> GeneratedBeat:
+        """
+        Generate metadata (summary, time label, reasoning) for already-generated content.
+
+        Used after streaming beat content to extract structured metadata.
+
+        Args:
+            content: The full beat content that was generated
+            context: Narrative context for coherent metadata generation
+
+        Returns:
+            GeneratedBeat with empty text field but populated metadata fields
+        """
+        pass

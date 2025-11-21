@@ -33,9 +33,10 @@ class Settings(BaseSettings):
     
     # Security
     secret_key: str = Field(
-        default="dev-secret-key-change-in-production",
-        description="Secret key for JWT encoding (MUST be changed in production)",
-        min_length=32
+        ...,  # REQUIRED - no default for security
+        description="Secret key for JWT encoding (REQUIRED in .env)",
+        min_length=64,  # Increased from 32 to 64 characters
+        max_length=128
     )
     algorithm: str = Field(
         default="HS256",

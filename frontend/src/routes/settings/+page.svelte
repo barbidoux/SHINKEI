@@ -101,8 +101,8 @@
 
 <div class="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900">Settings</h1>
-        <p class="mt-2 text-sm text-gray-600">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
+        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
             Manage your account and LLM provider configuration
         </p>
     </div>
@@ -110,17 +110,17 @@
     {#if loading}
         <div class="text-center py-12">
             <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-            <p class="mt-2 text-sm text-gray-600">Loading settings...</p>
+            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading settings...</p>
         </div>
     {:else if error && !user}
-        <div class="rounded-md bg-red-50 p-4">
-            <p class="text-sm text-red-800">{error}</p>
+        <div class="rounded-md bg-red-50 dark:bg-red-900/30 p-4">
+            <p class="text-sm text-red-800 dark:text-red-300">{error}</p>
         </div>
     {:else}
         <form on:submit|preventDefault={handleSave} class="space-y-8">
             <!-- Profile Section -->
-            <div class="bg-white shadow-sm ring-1 ring-gray-900/5 rounded-lg p-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">
+            <div class="bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-900/5 dark:ring-gray-700 rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
                     Profile
                 </h2>
 
@@ -128,7 +128,7 @@
                     <div>
                         <label
                             for="email"
-                            class="block text-sm font-medium text-gray-700"
+                            class="block text-sm font-medium text-gray-700 dark:text-gray-300"
                         >
                             Email
                         </label>
@@ -137,9 +137,9 @@
                             id="email"
                             value={user?.email}
                             disabled
-                            class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 text-gray-500 shadow-sm sm:text-sm"
+                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 shadow-sm sm:text-sm"
                         />
-                        <p class="mt-1 text-xs text-gray-500">
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                             Email cannot be changed
                         </p>
                     </div>
@@ -147,7 +147,7 @@
                     <div>
                         <label
                             for="name"
-                            class="block text-sm font-medium text-gray-700"
+                            class="block text-sm font-medium text-gray-700 dark:text-gray-300"
                         >
                             Display Name
                         </label>
@@ -156,15 +156,15 @@
                             id="name"
                             bind:value={name}
                             required
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm"
                         />
                     </div>
                 </div>
             </div>
 
             <!-- LLM Configuration Section -->
-            <div class="bg-white shadow-sm ring-1 ring-gray-900/5 rounded-lg p-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">
+            <div class="bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-900/5 dark:ring-gray-700 rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
                     LLM Provider Configuration
                 </h2>
 
@@ -172,20 +172,20 @@
                     <div>
                         <label
                             for="llm_provider"
-                            class="block text-sm font-medium text-gray-700"
+                            class="block text-sm font-medium text-gray-700 dark:text-gray-300"
                         >
                             Default Provider
                         </label>
                         <select
                             id="llm_provider"
                             bind:value={llm_provider}
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm"
                         >
                             <option value="openai">OpenAI</option>
                             <option value="anthropic">Anthropic (Claude)</option>
                             <option value="ollama">Ollama (Local/Remote)</option>
                         </select>
-                        <p class="mt-1 text-xs text-gray-500">
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                             Choose your preferred LLM provider for narrative generation
                         </p>
                     </div>
@@ -193,7 +193,7 @@
                     <div>
                         <label
                             for="llm_model"
-                            class="block text-sm font-medium text-gray-700"
+                            class="block text-sm font-medium text-gray-700 dark:text-gray-300"
                         >
                             Default Model
                         </label>
@@ -202,23 +202,23 @@
                             id="llm_model"
                             bind:value={llm_model}
                             placeholder={getModelPlaceholder(llm_provider)}
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm"
                         />
-                        <p class="mt-1 text-xs text-gray-500">
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                             Specify the model to use by default (can be overridden per generation)
                         </p>
                     </div>
 
                     {#if llm_provider === "ollama"}
-                        <div class="rounded-md bg-blue-50 p-4">
+                        <div class="rounded-md bg-blue-50 dark:bg-blue-900/30 p-4">
                             <div class="flex">
                                 <div class="flex-shrink-0">
-                                    <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <svg class="h-5 w-5 text-blue-400 dark:text-blue-300" viewBox="0 0 20 20" fill="currentColor">
                                         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
                                     </svg>
                                 </div>
                                 <div class="ml-3 flex-1">
-                                    <p class="text-sm text-blue-700">
+                                    <p class="text-sm text-blue-700 dark:text-blue-300">
                                         <strong>Ollama Configuration:</strong> You can use Ollama running on your Windows machine or any remote server.
                                         Enter the full URL including port (e.g., http://192.168.1.100:11434 for a Windows PC on your network).
                                     </p>
@@ -230,13 +230,13 @@
                     <div>
                         <label
                             for="llm_base_url"
-                            class="block text-sm font-medium text-gray-700"
+                            class="block text-sm font-medium text-gray-700 dark:text-gray-300"
                         >
                             Base URL / Custom Endpoint
                             {#if llm_provider === "ollama"}
-                                <span class="text-red-500">*</span>
+                                <span class="text-red-500 dark:text-red-400">*</span>
                             {:else}
-                                <span class="text-gray-500">(optional)</span>
+                                <span class="text-gray-500 dark:text-gray-400">(optional)</span>
                             {/if}
                         </label>
                         <input
@@ -245,9 +245,9 @@
                             bind:value={llm_base_url}
                             placeholder={getBaseUrlPlaceholder(llm_provider)}
                             required={llm_provider === "ollama"}
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm"
                         />
-                        <p class="mt-1 text-xs text-gray-500">
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                             {#if llm_provider === "ollama"}
                                 Required for Ollama. Enter the URL of your Ollama server.
                             {:else}
@@ -259,8 +259,8 @@
             </div>
 
             <!-- Preferences Section -->
-            <div class="bg-white shadow-sm ring-1 ring-gray-900/5 rounded-lg p-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">
+            <div class="bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-900/5 dark:ring-gray-700 rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
                     Preferences
                 </h2>
 
@@ -268,14 +268,14 @@
                     <div>
                         <label
                             for="ui_theme"
-                            class="block text-sm font-medium text-gray-700"
+                            class="block text-sm font-medium text-gray-700 dark:text-gray-300"
                         >
                             Theme
                         </label>
                         <select
                             id="ui_theme"
                             bind:value={ui_theme}
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm"
                         >
                             <option value="system">System Default</option>
                             <option value="light">Light</option>
@@ -286,14 +286,14 @@
                     <div>
                         <label
                             for="language"
-                            class="block text-sm font-medium text-gray-700"
+                            class="block text-sm font-medium text-gray-700 dark:text-gray-300"
                         >
                             Language
                         </label>
                         <select
                             id="language"
                             bind:value={language}
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm"
                         >
                             <option value="en">English</option>
                             <option value="fr">Français</option>
@@ -307,23 +307,23 @@
 
             <!-- Success/Error Messages -->
             {#if successMessage}
-                <div class="rounded-md bg-green-50 p-4">
+                <div class="rounded-md bg-green-50 dark:bg-green-900/30 p-4">
                     <div class="flex">
                         <div class="flex-shrink-0">
-                            <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                            <svg class="h-5 w-5 text-green-400 dark:text-green-300" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
                             </svg>
                         </div>
                         <div class="ml-3">
-                            <p class="text-sm font-medium text-green-800">{successMessage}</p>
+                            <p class="text-sm font-medium text-green-800 dark:text-green-300">{successMessage}</p>
                         </div>
                     </div>
                 </div>
             {/if}
 
             {#if error && user}
-                <div class="rounded-md bg-red-50 p-4">
-                    <p class="text-sm text-red-800">{error}</p>
+                <div class="rounded-md bg-red-50 dark:bg-red-900/30 p-4">
+                    <p class="text-sm text-red-800 dark:text-red-300">{error}</p>
                 </div>
             {/if}
 
@@ -331,14 +331,14 @@
             <div class="flex justify-end gap-3">
                 <a
                     href="/worlds"
-                    class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                    class="rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
                 >
                     Cancel
                 </a>
                 <button
                     type="submit"
                     disabled={saving}
-                    class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50"
+                    class="rounded-md bg-indigo-600 dark:bg-indigo-500 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 dark:hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:focus-visible:outline-indigo-400 disabled:opacity-50"
                 >
                     {#if saving}
                         Saving...

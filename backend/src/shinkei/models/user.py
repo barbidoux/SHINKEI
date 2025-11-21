@@ -33,9 +33,15 @@ class User(Base):
         unique=True,
         nullable=False,
         index=True,
-        comment="User email address"
+        comment="User email address (stored lowercase for case-insensitive uniqueness)"
     )
-    
+
+    password_hash: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        comment="Bcrypt password hash"
+    )
+
     name: Mapped[str] = mapped_column(
         String(255),
         nullable=False,

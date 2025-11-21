@@ -35,7 +35,9 @@
     "dependencies": {
         "@supabase/auth-helpers-sveltekit": "^0.13.0",
         "@supabase/supabase-js": "^2.46.2",
+        "@types/d3": "^7.4.3",
         "bits-ui": "^2.14.4",
+        "d3": "^7.9.0",
         "svelte-dnd-action": "^0.9.67",
         "vis-timeline": "^8.4.0"
     },

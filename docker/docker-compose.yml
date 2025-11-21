@@ -54,5 +54,44 @@ services:
       - /app/node_modules
     command: npm run dev -- --host 0.0.0.0
 
+  # Automatic Database Backup (runs daily at 2 AM)
+  backup:
+    image: postgres:16-alpine
+    container_name: shinkei-backup
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: shinkei_user
+      PGPASSWORD: shinkei_pass_dev_only
+      PGDATABASE: shinkei
+      BACKUP_RETENTION_DAYS: 30
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../backend/backups:/backups
+    entrypoint: /bin/sh
+    command: >
+      -c "
+      echo '🔄 Backup service started. Will run daily at 2 AM UTC.';
+      while true; do
+        CURRENT_HOUR=$$(date +%H);
+        if [ \"$$CURRENT_HOUR\" = \"02\" ]; then
+          echo '📦 Starting daily backup...';
+          TIMESTAMP=$$(date +%Y%m%d_%H%M%S);
+          pg_dump -h $$PGHOST -U $$PGUSER -d $$PGDATABASE > /backups/shinkei_backup_$$TIMESTAMP.sql;
+          if [ $$? -eq 0 ]; then
+            echo \"✅ Backup created: shinkei_backup_$$TIMESTAMP.sql\";
+            find /backups -name 'shinkei_backup_*.sql' -mtime +$$BACKUP_RETENTION_DAYS -delete;
+            echo '🗑️  Old backups cleaned up.';
+          else
+            echo '❌ Backup failed!';
+          fi;
+          sleep 3600;
+        fi;
+        sleep 3600;
+      done
+      "
+
 volumes:
   postgres_data:

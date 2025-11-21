@@ -15,6 +15,8 @@ export interface Story {
     status: StoryStatus;
     mode: AuthoringMode;
     pov_type: POVType;
+    tags: string[];
+    archived_at?: string;
     created_at: string;
     updated_at: string;
 }
@@ -27,6 +29,7 @@ export interface StoryCreate {
     status?: StoryStatus;
     mode?: AuthoringMode;
     pov_type?: POVType;
+    tags?: string[];
 }
 
 export interface StoryUpdate {
@@ -36,6 +39,7 @@ export interface StoryUpdate {
     status?: StoryStatus;
     mode?: AuthoringMode;
     pov_type?: POVType;
+    tags?: string[];
 }
 
 export interface StoryResponse extends Story {}
@@ -45,6 +49,30 @@ export interface StoryListResponse {
     total: number;
     page: number;
     page_size: number;
+}
+
+export interface StoryStatistics {
+    story_id: string;
+    beat_count: number;
+    word_count: number;
+    character_count: number;
+    ai_generated_count: number;
+    user_generated_count: number;
+    collaborative_count: number;
+    latest_beat_date?: string;
+    world_event_links: number;
+    beat_type_distribution: Record<string, number>;
+    estimated_reading_minutes: number;
+}
+
+export interface StoryTemplate {
+    name: string;
+    description: string;
+    synopsis?: string;
+    theme?: string;
+    mode: AuthoringMode;
+    pov_type: POVType;
+    suggested_tags: string[];
 }
 
 // Helper labels for UI display

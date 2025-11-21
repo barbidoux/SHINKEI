@@ -15,3 +15,7 @@ export { default as StoryIntersectionView } from './StoryIntersectionView.svelte
 export { default as BeatFilters } from './BeatFilters.svelte';
 export { default as BeatSearch } from './BeatSearch.svelte';
 export { default as StoryModePanel } from './StoryModePanel.svelte';
+export { default as CoherenceChecker } from './CoherenceChecker.svelte';
+export { default as EventDependencyGraph } from './EventDependencyGraph.svelte';
+export { default as AuthoringModeSelector } from './AuthoringModeSelector.svelte';
+export { default as CollaborativeProposalPanel } from './CollaborativeProposalPanel.svelte';
