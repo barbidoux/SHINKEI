@@ -73,6 +73,15 @@ docker exec shinkei-backend poetry run alembic upgrade head
 
 ## Features
 
+### Story Management
+
+- **Story Metadata Editing**: Update title, synopsis, theme, mode, POV, and status
+- **Story Tags**: Organize stories with customizable tags and autocomplete
+- **Story Templates**: 8+ genre-based templates (sci-fi, fantasy, horror, etc.)
+- **Story Cloning**: Duplicate stories with all beats for variants
+- **Story Archiving**: Soft delete with recovery functionality
+- **Story Statistics**: Word count, beat count, authoring metrics, reading time
+
 ### Three Authoring Modes
 
 1. **Autonomous Mode**
@@ -98,14 +107,22 @@ docker exec shinkei-backend poetry run alembic upgrade head
   - Perfect for running models on Windows servers or separate machines
   - Configure custom host in Settings (e.g., `http://192.168.1.100:11434`)
 
+### Beat Features
+
+- **Beat Reordering**: Drag-and-drop beat organization
+- **Beat Modification**: Edit beats with AI assistance and view modification history
+- **Beat Insertion**: Insert beats at any position in the sequence
+- **Coherence Checking**: AI-powered coherence analysis across beats
+- **World Event Linking**: Connect beats to canonical world events
+
 ### Complete Data Model
 
 ```
 User
   └── World (tone, laws, backdrop, chronology_mode)
       ├── WorldEvent (t, label_time, location, type, summary)
-      └── Story (title, synopsis, mode, pov_type)
-          └── StoryBeat (content, type, order_index, world_event_id)
+      └── Story (title, synopsis, mode, pov_type, tags, archived_at)
+          └── StoryBeat (content, type, order_index, world_event_id, generated_by)
 ```
 
 ### World Events Timeline
@@ -249,10 +266,17 @@ shinkei/
 - `DELETE /worlds/{id}` - Delete world
 
 ### Stories
-- `GET /worlds/{id}/stories` - List world's stories
+- `GET /worlds/{id}/stories` - List world's stories (with tag filtering)
 - `POST /worlds/{id}/stories` - Create story
 - `GET /stories/{id}` - Get story details
-- `DELETE /stories/{id}` - Delete story
+- `PUT /stories/{id}` - Update story
+- `DELETE /stories/{id}` - Archive story (soft delete)
+- `GET /stories/templates` - List available story templates
+- `POST /stories/{id}/clone` - Clone story with all beats
+- `POST /stories/{id}/restore` - Restore archived story
+- `GET /worlds/{id}/stories/archived` - List archived stories
+- `GET /worlds/{id}/stories/tags` - Get all unique tags
+- `GET /stories/{id}/statistics` - Get story statistics
 
 ### Story Beats
 - `GET /stories/{id}/beats` - List story beats
@@ -267,6 +291,13 @@ shinkei/
 - `GET /worlds/{id}/events/{event_id}` - Get event
 - `PUT /worlds/{id}/events/{event_id}` - Update event
 - `DELETE /worlds/{id}/events/{event_id}` - Delete event
+
+### Health & Monitoring
+- `GET /health` - Basic health check with database status
+- `GET /api/v1/health/ready` - Readiness probe for orchestration
+- `GET /api/v1/health/liveness` - Liveness probe
+- `GET /api/v1/health/startup` - Startup probe
+- `GET /api/v1/health/detailed` - Detailed health with latency metrics
 
 ## Configuration
 
@@ -345,7 +376,30 @@ The backend test suite includes:
 - Unit tests for repositories and services
 - Integration tests with database
 - API endpoint tests
-- Target: 80%+ coverage
+- **Current Coverage: 94%** (280+ tests)
+
+## CI/CD
+
+### GitHub Actions
+
+The project includes automated workflows:
+
+1. **CI Workflow** (`.github/workflows/ci.yml`)
+   - Code quality checks (Black, Ruff, Mypy)
+   - Full test suite with coverage
+   - Frontend linting and type checking
+   - Integration tests with PostgreSQL
+
+2. **Security Scanning** (`.github/workflows/security-scan.yml`)
+   - Trivy filesystem and Docker scanning
+   - Bandit Python security linter
+   - Safety dependency vulnerability checks
+   - Weekly scheduled scans
+
+3. **Docker Build Verification** (`.github/workflows/docker-build.yml`)
+   - Builds and verifies Docker images
+   - Tests Docker Compose stack startup
+   - Verifies health endpoints
 
 ## Troubleshooting
 
@@ -385,22 +439,40 @@ rm -rf .svelte-kit
 
 ## Contributing
 
-1. Follow the code style (Black for Python, Prettier for TypeScript)
-2. Write tests for new features
-3. Update documentation
-4. Create descriptive commit messages
-5. Use feature branches
+We welcome contributions! Please follow these guidelines:
+
+1. **Code Style**
+   - Python: Black formatter, Ruff linter, Mypy type checker
+   - TypeScript: Prettier formatter, ESLint
+   - Follow existing patterns and conventions
+
+2. **Testing**
+   - Write tests for new features
+   - Maintain 80%+ code coverage
+   - Run full test suite before submitting
+
+3. **Documentation**
+   - Update README for significant changes
+   - Add JSDoc/docstrings to new code
+   - Update CLAUDE.md for AI context
+
+4. **Git Workflow**
+   - Use descriptive commit messages
+   - Create feature branches
+   - Reference issues in commits
 
 ## License
 
-[Your License Here]
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+Copyright (c) 2025 SHINKEI Project
 
 ## Support
 
 For issues and questions:
-- GitHub Issues: [repository-issues-url]
-- Documentation: [docs-url]
-- Email: [support-email]
+- **Issues**: [GitHub Issues](https://github.com/your-repo/shinkei/issues)
+- **Documentation**: See [SHINKEI_SPECS.md](SHINKEI_SPECS.md) and [CLAUDE.md](CLAUDE.md)
+- **Discussions**: [GitHub Discussions](https://github.com/your-repo/shinkei/discussions)
 
 ---
 

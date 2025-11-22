@@ -3,6 +3,7 @@ name = "shinkei-backend"
 version = "0.1.0"
 description = "Shinkei Narrative Engine - Backend API"
 authors = ["Shinkei Team <team@shinkei.dev>"]
+license = "MIT"
 packages = [{include = "shinkei", from = "src"}]
 
 [tool.poetry.dependencies]

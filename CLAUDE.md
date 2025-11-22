@@ -185,9 +185,47 @@ The backend follows a modular monolith pattern with domain-driven modules. Key p
 User
   └── World (tone, laws, backdrop, chronology_mode)
       ├── WorldEvent (t, label_time, location, type, summary)
-      └── Story (title, synopsis, status, pov_type, mode)
+      └── Story (title, synopsis, status, pov_type, mode, tags, archived_at)
           └── StoryBeat (seq_in_story, world_event_id, type, text, generated_by)
 ```
+
+### Story Management Features (Fully Implemented)
+
+**Feature 1: Story Metadata Editing**
+- Full edit page UI with all fields (title, synopsis, theme, status, mode, POV, tags)
+- Backend: Complete CRUD with validation
+- Frontend: `/stories/[id]/edit` route with form validation
+
+**Feature 2: Story Tags**
+- PostgreSQL ARRAY column with GIN index for fast queries
+- Tag autocomplete from existing world tags
+- Tag filtering in story lists
+- Max 20 tags per story, 50 chars each
+
+**Feature 3: Story Templates**
+- 8 genre presets: sci-fi-thriller, epic-fantasy, survival-horror, mystery-detective, etc.
+- Template selector in creation form
+- Auto-fills synopsis, theme, mode, POV, suggested tags
+- Located in `backend/src/shinkei/generation/story_templates.py`
+
+**Feature 4: Story Statistics**
+- Real-time calculation from beat data
+- Metrics: word count, beat count, character count, reading time
+- Authoring distribution (AI vs user vs collaborative)
+- Beat type distribution
+- Estimated reading time (250 words/minute)
+
+**Feature 5: Story Cloning**
+- Deep copy with new UUIDs
+- Preserves all beats and event links
+- Appends " (Copy)" to title
+- Maintains beat order and sequence
+
+**Feature 6: Story Archiving**
+- Soft delete via `archived_at` timestamp
+- Restore functionality
+- Archived stories page per world
+- Status automatically set to "archived"
 
 ### Three Temporal Layers
 1. **`t`**: Objective world time (WorldEvent.t)
@@ -262,13 +300,26 @@ Test fixtures in [backend/tests/conftest.py](backend/tests/conftest.py) provide:
 
 The backend exposes the following API routers under `/api/v1`:
 
-- `/auth` - Authentication (login, signup, token refresh)
+- `/auth` - Authentication (register, login)
 - `/users` - User management
 - `/worlds` - World CRUD operations
 - `/worlds/{world_id}/events` - WorldEvent management (nested under worlds)
 - `/worlds/{world_id}/stories` - Story management (nested under worlds)
+  - `GET /worlds/{id}/stories` - List stories (supports `?tag=sci-fi&include_archived=true`)
+  - `POST /worlds/{id}/stories` - Create story (with tags, mode, pov_type)
+  - `GET /worlds/{id}/stories/archived` - List archived stories
+  - `GET /worlds/{id}/stories/tags` - Get all unique tags in world
+- `/stories` - Story operations
+  - `GET /stories/{id}` - Get story details
+  - `PUT /stories/{id}` - Update story
+  - `DELETE /stories/{id}` - Archive story (soft delete)
+  - `GET /stories/templates` - List story templates
+  - `POST /stories/{id}/clone` - Clone story with all beats
+  - `POST /stories/{id}/restore` - Restore archived story
+  - `GET /stories/{id}/statistics` - Get story statistics
 - `/stories/{story_id}/beats` - StoryBeat management (nested under stories)
 - `/generation` - AI content generation
+- `/health` - Health check endpoints (basic, ready, liveness, startup, detailed)
 
 All endpoints require authentication via JWT Bearer tokens (except `/auth` endpoints).
 
@@ -277,10 +328,12 @@ All endpoints require authentication via JWT Bearer tokens (except `/auth` endpo
 1. **Never hardcode credentials**: Use environment variables
 2. **Always use repositories for data access**: Don't query directly in endpoints
 3. **Migration safety**: Test migrations both `upgrade` and `downgrade`
-4. **Frontend is WIP**: Frontend source files not yet scaffolded (only package.json exists)
-5. **API versioning**: All endpoints under `/api/v1` prefix
-6. **Structured logging**: Use `get_logger(__name__)` from `logging_config`
-7. **Provider selection**: AI generation supports multiple providers via factory pattern
+4. **API versioning**: All endpoints under `/api/v1` prefix
+5. **Structured logging**: Use `get_logger(__name__)` from `logging_config`
+6. **Provider selection**: AI generation supports multiple providers via factory pattern
+7. **Enum serialization**: All enums (mode, pov_type, status, generated_by) serialize to lowercase
+8. **Password requirements**: Min 12 chars, 1 uppercase, 1 special character
+9. **Soft delete**: Stories use `archived_at` timestamp, not hard delete
 
 ## Documentation
 
@@ -380,18 +433,22 @@ poetry run safety check
 The project has:
 - ✅ Backend structure with FastAPI
 - ✅ SQLAlchemy models (User, World, Story, StoryBeat, WorldEvent)
-- ✅ Alembic migrations
+- ✅ Alembic migrations (including tags and soft delete)
 - ✅ Repository pattern implementation
 - ✅ Full API endpoints (auth, users, worlds, stories, events, beats, health)
 - ✅ AI generation engine with multi-provider support (OpenAI, Anthropic, Ollama)
 - ✅ Generation service with prompt template system
 - ✅ Docker Compose setup
-- ✅ Comprehensive test infrastructure (280 tests, 94% coverage)
+- ✅ Comprehensive test infrastructure (280+ tests, 94% coverage)
 - ✅ GitHub Actions CI/CD (automated testing, security scanning, Docker builds)
 - ✅ Health check endpoints (basic + orchestration probes)
-- ⏳ Frontend scaffolding (package.json + dependencies, source files pending)
-- ⏳ Frontend UI components (pending)
-- ⏳ Story authoring modes implementation (Auto/Collaborative/Manual)
+- ✅ Frontend SvelteKit application with TypeScript
+- ✅ Frontend UI components (Button, Modal, Toast, LoadingSpinner, etc.)
+- ✅ Story management features (metadata, tags, templates, cloning, archiving, statistics)
+- ✅ Beat features (reordering, modification, insertion, coherence checking)
+- ✅ Story authoring modes (Autonomous/Collaborative/Manual)
+- ✅ World event timeline and story intersection views
+- ✅ MIT License
 
 ## Quick Start for New Contributors
 
@@ -399,6 +456,19 @@ The project has:
 2. Start Docker services: `docker-compose -f docker/docker-compose.yml up`
 3. Run migrations: `docker exec shinkei-backend poetry run alembic upgrade head`
 4. Access API docs: http://localhost:8000/api/v1/docs
-5. Check health: `curl http://localhost:8000/health`
-6. Run tests: `cd backend && poetry run pytest`
-7. View CI/CD workflows: See `.github/workflows/README.md`
+5. Access frontend: http://localhost:5173
+6. Check health: `curl http://localhost:8000/health`
+7. Run tests: `cd backend && poetry run pytest`
+8. View CI/CD workflows: See `.github/workflows/README.md`
+
+## License
+
+This project is licensed under the **MIT License**.
+
+Copyright (c) 2025 SHINKEI Project
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+See the [LICENSE](LICENSE) file for full details.
