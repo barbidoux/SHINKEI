@@ -5,6 +5,7 @@
     import { api } from "$lib/api";
     import { BeatModificationPanel, CoherenceChecker } from "$lib/components";
     import AIThoughtsPanel from "$lib/components/AIThoughtsPanel.svelte";
+    import EntitySuggestionsPanel from "$lib/components/EntitySuggestionsPanel.svelte";
     import type { BeatType, StoryBeat, WorldEvent, BeatResponse } from "$lib/types";
 
     let beat: StoryBeat | null = null;
@@ -17,10 +18,12 @@
     let loadingBeat = true;
     let error = "";
     let showModificationPanel = false;
+    let showEntityDetection = false;
 
     let worldEvents: WorldEvent[] = [];
     let loadingEvents = true;
     let worldId = "";
+    let entitySuggestionsPanel: EntitySuggestionsPanel;
 
     $: storyId = $page.params.id;
     $: beatId = $page.params.beat_id;
@@ -253,6 +256,16 @@
                     >
                         🤖 Modify with AI
                     </button>
+                    <button
+                        type="button"
+                        on:click={() => {
+                            showEntityDetection = true;
+                            setTimeout(() => entitySuggestionsPanel?.detectEntities(), 100);
+                        }}
+                        class="rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
+                    >
+                        🔍 Detect Entities
+                    </button>
                 </div>
                 <button
                     type="submit"
@@ -288,6 +301,30 @@
         {#if beat}
             <div class="mt-6">
                 <CoherenceChecker storyId={storyId} beatId={beatId} />
+            </div>
+        {/if}
+
+        <!-- Entity Detection Panel -->
+        {#if beat && showEntityDetection}
+            <div class="mt-6 border-2 border-indigo-200 dark:border-indigo-800 rounded-lg p-6 bg-white dark:bg-gray-800 shadow-lg">
+                <div class="mb-4">
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">AI Entity Detection</h2>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Let AI analyze this beat to find mentioned characters and locations
+                    </p>
+                </div>
+                <EntitySuggestionsPanel
+                    bind:this={entitySuggestionsPanel}
+                    worldId={worldId}
+                    storyId={storyId}
+                    beatId={beatId}
+                    beatContent={content}
+                    on:apply={(e) => {
+                        console.log('Entities to apply:', e.detail.suggestions);
+                        // TODO: Implement entity application logic
+                        // This would create entity_mentions for the accepted entities
+                    }}
+                />
             </div>
         {/if}
     </div>

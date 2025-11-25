@@ -1,6 +1,17 @@
 <script lang="ts">
     import { api } from "$lib/api";
+    import { auth } from "$lib/stores/auth";
     import WorldEventPicker from "./WorldEventPicker.svelte";
+    import AIParameterTabs from "./AIParameterTabs.svelte";
+    import CollaborativeOptions from "./CollaborativeOptions.svelte";
+    import type {
+        LengthPreset,
+        PacingOption,
+        TensionOption,
+        DialogueDensityOption,
+        DescriptionRichnessOption,
+        VariationFocusOption
+    } from "$lib/types";
 
     export let storyId: string;
     export let worldId: string; // World ID for loading events
@@ -22,6 +33,12 @@
         content: string;
     }
 
+    // Provider settings from user preferences
+    $: userSettings = $auth.user?.settings;
+    $: provider = (userSettings?.llm_provider as "openai" | "anthropic" | "ollama") || "openai";
+    $: model = userSettings?.llm_model || "";
+    $: ollama_host = userSettings?.llm_base_url || "";
+
     let userGuidance: string = "";
     let proposals: BeatProposal[] = [];
     let selectedIndex: number | null = null;
@@ -31,6 +48,28 @@
     let expandedContent: { [key: number]: boolean } = {};
     let generatingProgress: number = 0; // Total count of completed proposals
     let proposalSlots: (BeatProposal | null)[] = [null, null, null]; // Track which slots are filled
+
+    // Basic Tab: Length control
+    let targetLengthPreset: LengthPreset | null = null;
+    let targetLengthWords: number | null = null;
+
+    // Advanced Tab: LLM parameters
+    let temperature = 0.7;
+    let max_tokens = 8000;
+    let topP = 0.9;
+    let frequencyPenalty = 0.0;
+    let presencePenalty = 0.0;
+    let topK: number | null = null;
+
+    // Expert Tab: Narrative style
+    let pacing: PacingOption | null = null;
+    let tensionLevel: TensionOption | null = null;
+    let dialogueDensity: DialogueDensityOption | null = null;
+    let descriptionRichness: DescriptionRichnessOption | null = null;
+
+    // Collaborative-specific options
+    let proposalDiversity = 0.5;
+    let variationFocus: VariationFocusOption | null = null;
 
     // Proposal editing state
     let editingProposalIndex: number | null = null;
@@ -101,31 +140,63 @@
                 throw new Error('Not authenticated');
             }
 
+            // Build request body with all parameters
+            const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+            const requestBody: Record<string, any> = {
+                user_guidance: userGuidance || null,
+                num_proposals: 3,
+                provider,
+                insertion_mode: insertionMode,
+                insert_after_beat_id: insertionMode === "insert_after" ? insertAfterBeatId : null,
+                insert_at_position: insertionMode === "insert_at" ? insertAtPosition : null,
+                // Advanced Tab: LLM parameters
+                temperature,
+                max_tokens,
+                top_p: topP,
+                frequency_penalty: frequencyPenalty,
+                presence_penalty: presencePenalty,
+                // Collaborative-specific parameters
+                proposal_diversity: proposalDiversity,
+                // Metadata controls
+                beat_type_mode: beatTypeMode,
+                beat_type_manual: beatTypeMode === "manual" ? beatTypeManual : null,
+                summary_mode: summaryMode,
+                summary_manual: summaryMode === "manual" ? summaryManual : null,
+                local_time_label_mode: localTimeLabelMode,
+                local_time_label_manual: localTimeLabelMode === "manual" ? localTimeLabelManual : null,
+                world_event_id_mode: worldEventIdMode,
+                world_event_id_manual: worldEventIdMode === "manual" ? worldEventIdManual : null
+            };
+
+            // Basic Tab: Length control (only include if set)
+            if (targetLengthPreset) requestBody.target_length_preset = targetLengthPreset;
+            if (targetLengthWords) requestBody.target_length_words = targetLengthWords;
+
+            // Advanced Tab: Optional top_k
+            if (topK !== null) requestBody.top_k = topK;
+
+            // Expert Tab: Narrative style (only include if set)
+            if (pacing) requestBody.pacing = pacing;
+            if (tensionLevel) requestBody.tension_level = tensionLevel;
+            if (dialogueDensity) requestBody.dialogue_density = dialogueDensity;
+            if (descriptionRichness) requestBody.description_richness = descriptionRichness;
+
+            // Collaborative-specific: variation focus
+            if (variationFocus) requestBody.variation_focus = variationFocus;
+
+            // Provider-specific options
+            if (model) requestBody.model = model;
+            if (provider === "ollama" && ollama_host) requestBody.ollama_host = ollama_host;
+
             const response = await fetch(
-                `http://localhost:8000/api/v1/narrative/stories/${storyId}/beats/propose/stream`,
+                `${baseUrl}/api/v1/narrative/stories/${storyId}/beats/propose/stream`,
                 {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({
-                        user_guidance: userGuidance || null,
-                        num_proposals: 3,
-                        provider: null,
-                        insertion_mode: insertionMode,
-                        insert_after_beat_id: insertionMode === "insert_after" ? insertAfterBeatId : null,
-                        insert_at_position: insertionMode === "insert_at" ? insertAtPosition : null,
-                        // Metadata controls
-                        beat_type_mode: beatTypeMode,
-                        beat_type_manual: beatTypeMode === "manual" ? beatTypeManual : null,
-                        summary_mode: summaryMode,
-                        summary_manual: summaryMode === "manual" ? summaryManual : null,
-                        local_time_label_mode: localTimeLabelMode,
-                        local_time_label_manual: localTimeLabelMode === "manual" ? localTimeLabelManual : null,
-                        world_event_id_mode: worldEventIdMode,
-                        world_event_id_manual: worldEventIdMode === "manual" ? worldEventIdManual : null
-                    })
+                    body: JSON.stringify(requestBody)
                 }
             );
 
@@ -371,6 +442,32 @@
                 </p>
             {/if}
         </div>
+    </div>
+
+    <!-- AI Parameter Tabs (Basic/Advanced/Expert) -->
+    <div class="mb-6">
+        <AIParameterTabs
+            bind:targetLengthPreset
+            bind:targetLengthWords
+            bind:temperature
+            bind:maxTokens={max_tokens}
+            bind:topP
+            bind:frequencyPenalty
+            bind:presencePenalty
+            bind:topK
+            bind:pacing
+            bind:tensionLevel
+            bind:dialogueDensity
+            bind:descriptionRichness
+        />
+    </div>
+
+    <!-- Collaborative-Specific Options -->
+    <div class="mb-6">
+        <CollaborativeOptions
+            bind:proposalDiversity
+            bind:variationFocus
+        />
     </div>
 
     <!-- Advanced Metadata Options -->

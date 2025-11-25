@@ -93,16 +93,17 @@ Write in a literary style appropriate for {context.world_tone} narratives."""
         # Add generation constraints
         constraints = []
         if context.target_length:
-            constraints.append(f"LENGTH: Approximately {context.target_length} words")
-        if context.pacing:
-            constraints.append(f"PACING: {context.pacing}")
-        if context.tension_level:
-            constraints.append(f"TENSION: {context.tension_level}")
+            constraints.append(f"LENGTH: Aim for approximately {context.target_length} words")
 
         if constraints:
-            prompt_parts.append("\n\nCONSTRAINTS:")
+            prompt_parts.append("\n\nLENGTH CONSTRAINT:")
             for constraint in constraints:
                 prompt_parts.append(f"- {constraint}")
+
+        # Add narrative style instructions
+        style_instructions = BeatGenerationPrompts._build_narrative_style_instructions(context)
+        if style_instructions:
+            prompt_parts.append(style_instructions)
 
         # Final instruction
         prompt_parts.append("\n\nWrite the next narrative beat:")
@@ -132,6 +133,59 @@ Write in a literary style appropriate for {context.world_tone} narratives."""
             formatted.append(f"- FORBIDDEN (NEVER include): {laws['forbidden']}")
 
         return "\n".join(formatted) if formatted else "No specific laws defined"
+
+    @staticmethod
+    def _build_narrative_style_instructions(context: GenerationContext) -> str:
+        """
+        Build narrative style instructions based on context settings.
+
+        Args:
+            context: Generation context with style parameters
+
+        Returns:
+            Formatted style instructions string
+        """
+        instructions = []
+
+        # Pacing
+        if context.pacing:
+            pacing_details = {
+                "slow": "Take time to develop scenes with deliberate details, internal reflection, and atmospheric description. Allow moments to breathe.",
+                "medium": "Balance scene development with forward momentum. Provide enough detail for immersion while keeping the story moving.",
+                "fast": "Keep the narrative moving with action, quick scene transitions, and concise prose. Focus on events and reactions."
+            }
+            instructions.append(f"PACING ({context.pacing.upper()}): {pacing_details.get(context.pacing, '')}")
+
+        # Tension level
+        if context.tension_level:
+            tension_details = {
+                "low": "Maintain a calm, relaxed atmosphere. Focus on character moments, world-building, or quiet progression.",
+                "medium": "Build engaging anticipation without overwhelming. Create interest and mild suspense to keep readers invested.",
+                "high": "Create intense, gripping moments that keep readers on edge. Use conflict, stakes, and urgency to drive tension."
+            }
+            instructions.append(f"TENSION ({context.tension_level.upper()}): {tension_details.get(context.tension_level, '')}")
+
+        # Dialogue density
+        if context.dialogue_density:
+            dialogue_details = {
+                "minimal": "Focus on narration with occasional dialogue only for key moments. Let the prose carry the story.",
+                "moderate": "Balance narration and dialogue naturally. Use conversation when it advances character or plot.",
+                "heavy": "Use conversation as a primary storytelling device. Rich dialogue exchanges reveal character and advance the story."
+            }
+            instructions.append(f"DIALOGUE ({context.dialogue_density.upper()}): {dialogue_details.get(context.dialogue_density, '')}")
+
+        # Description richness
+        if context.description_richness:
+            description_details = {
+                "sparse": "Keep descriptions concise and functional. Focus on essential details that drive the narrative.",
+                "balanced": "Provide sufficient sensory and environmental detail without over-describing. Paint the scene adequately.",
+                "detailed": "Create rich, immersive descriptions that bring scenes to life. Engage all senses and build vivid imagery."
+            }
+            instructions.append(f"DESCRIPTION ({context.description_richness.upper()}): {description_details.get(context.description_richness, '')}")
+
+        if instructions:
+            return "\n\nNARRATIVE STYLE:\n" + "\n".join(f"- {inst}" for inst in instructions)
+        return ""
 
     @staticmethod
     def _build_mode_instructions(mode: str) -> str:

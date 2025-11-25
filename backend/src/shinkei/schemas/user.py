@@ -8,8 +8,8 @@ class UserSettings(BaseModel):
     """User settings schema."""
     language: str = "en"
     ui_theme: str = "system"  # "light", "dark", "system"
-    llm_provider: str = "openai"
-    llm_model: str = "gpt-4o"
+    llm_provider: Optional[str] = None  # None = use settings.default_llm_provider
+    llm_model: Optional[str] = None  # None = use provider default
     llm_base_url: Optional[str] = None
 
 

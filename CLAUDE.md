@@ -185,8 +185,12 @@ The backend follows a modular monolith pattern with domain-driven modules. Key p
 User
   └── World (tone, laws, backdrop, chronology_mode)
       ├── WorldEvent (t, label_time, location, type, summary)
+      ├── Character (name, description, traits, importance, relationships)
+      ├── Location (name, description, parent_id for hierarchy)
+      ├── CharacterRelationship (character_a_id, character_b_id, relationship_type)
       └── Story (title, synopsis, status, pov_type, mode, tags, archived_at)
-          └── StoryBeat (seq_in_story, world_event_id, type, text, generated_by)
+          ├── StoryBeat (seq_in_story, world_event_id, type, text, generated_by)
+          └── EntityMention (beat_id, entity_type, entity_id, context)
 ```
 
 ### Story Management Features (Fully Implemented)
@@ -240,11 +244,17 @@ Stories intersect when multiple StoryBeats reference the same `WorldEvent`. This
 The AI generation system is implemented with an abstract `NarrativeModel` interface supporting multiple providers:
 
 **Core Components:**
-- **`generation/base.py`**: Abstract `NarrativeModel` interface defining `generate()` and `generate_stream()` methods
+- **`generation/base.py`**: Abstract `NarrativeModel` interface, `GenerationConfig` (LLM params), `GenerationContext` (narrative context with style params)
 - **`generation/factory.py`**: Factory for creating provider instances based on configuration
-- **`generation/service.py`**: `GenerationService` orchestrating generation with prompt templates
-- **`generation/prompts.py`**: Jinja2-based prompt template management
+- **`generation/narrative_service.py`**: `NarrativeGenerationService` - main service for beat generation with context building
+- **`generation/beat_prompts.py`**: `BeatGenerationPrompts` - builds narrative prompts with style instructions
 - **`generation/providers/`**: Provider implementations (OpenAI, Anthropic, Ollama)
+- **`services/authoring_service.py`**: `AuthoringService` - handles collaborative proposals with diversity/variation
+
+**Key Service Classes:**
+- `NarrativeGenerationService.generate_next_beat()` - autonomous beat generation
+- `NarrativeGenerationService.generate_next_beat_stream()` - streaming generation (SSE)
+- `AuthoringService.collaborative_propose_stream()` - generates 3 proposal variations with temperature variance
 
 **Supported Providers:**
 - **OpenAI**: GPT-4, GPT-3.5-turbo (requires `OPENAI_API_KEY`)
@@ -264,8 +274,14 @@ DEFAULT_LLM_PROVIDER=openai  # or anthropic, ollama
 
 **Three Authoring Modes:**
 - **Autonomous**: AI generates everything
-- **Collaborative**: AI proposes, user edits
+- **Collaborative**: AI proposes 3 variations, user selects and edits
 - **Manual**: User writes, AI ensures coherence
+
+**Beat Generation Fine-Tuning (Progressive Disclosure UI):**
+- **Basic Tab**: Length control (presets: short/medium/long, or custom word count)
+- **Advanced Tab**: LLM parameters (temperature, max_tokens, top_p, frequency_penalty, presence_penalty, top_k)
+- **Expert Tab**: Narrative style (pacing, tension_level, dialogue_density, description_richness)
+- **Collaborative-specific**: proposal_diversity (temperature variance), variation_focus (style/plot/tone/all)
 
 ## Security & Authentication
 
@@ -318,7 +334,16 @@ The backend exposes the following API routers under `/api/v1`:
   - `POST /stories/{id}/restore` - Restore archived story
   - `GET /stories/{id}/statistics` - Get story statistics
 - `/stories/{story_id}/beats` - StoryBeat management (nested under stories)
-- `/generation` - AI content generation
+- `/narrative` - AI narrative generation (beat generation, proposals, streaming)
+  - `POST /narrative/stories/{id}/beats/generate` - Generate next beat
+  - `POST /narrative/stories/{id}/beats/generate/stream` - Streaming generation (SSE)
+  - `POST /narrative/stories/{id}/beats/propose/stream` - Generate 3 collaborative proposals
+- `/generation` - AI content generation (templates)
+- `/worlds/{world_id}/characters` - Character CRUD
+- `/worlds/{world_id}/locations` - Location CRUD (supports hierarchy)
+- `/worlds/{world_id}/relationships` - Character relationship management
+- `/entity-mentions` - Track entity appearances in beats
+- `/entity-generation` - AI-powered entity suggestions
 - `/health` - Health check endpoints (basic, ready, liveness, startup, detailed)
 
 All endpoints require authentication via JWT Bearer tokens (except `/auth` endpoints).
@@ -330,10 +355,11 @@ All endpoints require authentication via JWT Bearer tokens (except `/auth` endpo
 3. **Migration safety**: Test migrations both `upgrade` and `downgrade`
 4. **API versioning**: All endpoints under `/api/v1` prefix
 5. **Structured logging**: Use `get_logger(__name__)` from `logging_config`
-6. **Provider selection**: AI generation supports multiple providers via factory pattern
+6. **Provider selection**: AI generation uses user settings (`user.settings.llm_provider`) with fallback to defaults
 7. **Enum serialization**: All enums (mode, pov_type, status, generated_by) serialize to lowercase
 8. **Password requirements**: Min 12 chars, 1 uppercase, 1 special character
 9. **Soft delete**: Stories use `archived_at` timestamp, not hard delete
+10. **SSE Streaming**: Narrative generation endpoints use Server-Sent Events for real-time token streaming
 
 ## Documentation
 
@@ -448,6 +474,10 @@ The project has:
 - ✅ Beat features (reordering, modification, insertion, coherence checking)
 - ✅ Story authoring modes (Autonomous/Collaborative/Manual)
 - ✅ World event timeline and story intersection views
+- ✅ Entity management (Characters, Locations, Relationships)
+- ✅ Entity mentions tracking in beats
+- ✅ Enhanced beat generation fine-tuning (progressive disclosure UI)
+- ✅ Collaborative proposal diversity and variation focus
 - ✅ MIT License
 
 ## Quick Start for New Contributors

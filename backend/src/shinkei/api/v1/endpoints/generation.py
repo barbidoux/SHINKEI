@@ -17,7 +17,7 @@ class GenerateRequest(BaseModel):
     """Request model for generation endpoint."""
     template_name: str
     context: Dict[str, Any]
-    provider: Optional[str] = "openai"
+    provider: Optional[str] = None  # Uses settings.default_llm_provider if not specified
     model: Optional[str] = None
     temperature: float = 0.7
 

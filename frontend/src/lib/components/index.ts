@@ -19,3 +19,4 @@ export { default as CoherenceChecker } from './CoherenceChecker.svelte';
 export { default as EventDependencyGraph } from './EventDependencyGraph.svelte';
 export { default as AuthoringModeSelector } from './AuthoringModeSelector.svelte';
 export { default as CollaborativeProposalPanel } from './CollaborativeProposalPanel.svelte';
+export { default as AIGenerationOptions } from './AIGenerationOptions.svelte';

@@ -22,3 +22,12 @@ export * from "./api";
 
 // Timeline types
 export * from "./timeline";
+
+// Character types
+export * from "./character";
+
+// Location types
+export * from "./location";
+
+// Relationship types
+export * from "./relationship";

@@ -45,3 +45,8 @@ function createToastStore() {
 }
 
 export const toasts = createToastStore();
+
+// Helper function for easier toast usage
+export function addToast(toast: { type: ToastType; message: string; duration?: number }) {
+    toasts.show(toast.type, toast.message, toast.duration);
+}

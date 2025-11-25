@@ -58,21 +58,81 @@ class GenerateBeatRequest(BaseModel):
         None,
         description="Optional WorldEvent ID to write toward"
     )
+    # === BASIC TAB: Length Control ===
+    target_length_preset: Optional[str] = Field(
+        None,
+        pattern="^(short|medium|long)$",
+        description="Length preset: short (~500 words), medium (~1000), long (~2000)"
+    )
+    target_length_words: Optional[int] = Field(
+        None,
+        ge=100,
+        le=10000,
+        description="Custom word count target (overrides preset if set)"
+    )
+
+    # === ADVANCED TAB: LLM Parameters ===
     temperature: float = Field(
         0.7,
         ge=0.0,
         le=2.0,
-        description="Generation temperature"
+        description="Creativity: 0=focused, 2=creative"
     )
     max_tokens: int = Field(
         2000,
         ge=100,
         le=32000,
-        description="Maximum tokens to generate"
+        description="Maximum output length in tokens"
+    )
+    top_p: float = Field(
+        0.9,
+        ge=0.0,
+        le=1.0,
+        description="Nucleus sampling: considers top P% tokens"
+    )
+    frequency_penalty: float = Field(
+        0.0,
+        ge=-2.0,
+        le=2.0,
+        description="Reduces word repetition (-2 to 2)"
+    )
+    presence_penalty: float = Field(
+        0.0,
+        ge=-2.0,
+        le=2.0,
+        description="Encourages new topics (-2 to 2)"
+    )
+    top_k: Optional[int] = Field(
+        None,
+        ge=1,
+        le=100,
+        description="Top-K sampling: considers top K tokens"
     )
     ollama_host: Optional[str] = Field(
         None,
         description="Ollama server host (for Ollama provider)"
+    )
+
+    # === EXPERT TAB: Narrative Style Controls ===
+    pacing: Optional[str] = Field(
+        None,
+        pattern="^(slow|medium|fast)$",
+        description="Story pacing: slow=detailed, medium=balanced, fast=action-focused"
+    )
+    tension_level: Optional[str] = Field(
+        None,
+        pattern="^(low|medium|high)$",
+        description="Narrative tension: low=calm, medium=engaging, high=intense"
+    )
+    dialogue_density: Optional[str] = Field(
+        None,
+        pattern="^(minimal|moderate|heavy)$",
+        description="Dialogue amount: minimal=narration-focused, heavy=conversation-rich"
+    )
+    description_richness: Optional[str] = Field(
+        None,
+        pattern="^(sparse|balanced|detailed)$",
+        description="Descriptive detail: sparse=concise, detailed=immersive"
     )
 
     # Beat insertion parameters
@@ -207,11 +267,15 @@ async def generate_next_beat(
     """
     service = NarrativeGenerationService(db)
 
-    # Build generation config
+    # Build generation config with all LLM parameters
     generation_config = GenerationConfig(
         model=request.model,
         temperature=request.temperature,
-        max_tokens=request.max_tokens
+        max_tokens=request.max_tokens,
+        top_p=request.top_p,
+        frequency_penalty=request.frequency_penalty,
+        presence_penalty=request.presence_penalty,
+        top_k=request.top_k
     )
 
     # Prepare provider kwargs
@@ -239,6 +303,13 @@ async def generate_next_beat(
             local_time_label_manual=request.local_time_label_manual,
             world_event_id_mode=request.world_event_id_mode,
             world_event_id_manual=request.world_event_id_manual,
+            # Narrative style parameters
+            target_length_preset=request.target_length_preset,
+            target_length_words=request.target_length_words,
+            pacing=request.pacing,
+            tension_level=request.tension_level,
+            dialogue_density=request.dialogue_density,
+            description_richness=request.description_richness,
             **provider_kwargs
         )
 
@@ -313,11 +384,15 @@ async def generate_next_beat_stream(
     async def event_generator() -> AsyncGenerator[str, None]:
         service = NarrativeGenerationService(db)
 
-        # Build generation config
+        # Build generation config with all LLM parameters
         generation_config = GenerationConfig(
             model=request.model,
             temperature=request.temperature,
-            max_tokens=request.max_tokens
+            max_tokens=request.max_tokens,
+            top_p=request.top_p,
+            frequency_penalty=request.frequency_penalty,
+            presence_penalty=request.presence_penalty,
+            top_k=request.top_k
         )
 
         # Prepare provider kwargs
@@ -335,6 +410,13 @@ async def generate_next_beat_stream(
                 user_instructions=request.user_instructions,
                 target_event_id=request.target_event_id,
                 generation_config=generation_config,
+                # Narrative style parameters
+                target_length_preset=request.target_length_preset,
+                target_length_words=request.target_length_words,
+                pacing=request.pacing,
+                tension_level=request.tension_level,
+                dialogue_density=request.dialogue_density,
+                description_richness=request.description_richness,
                 **provider_kwargs
             ):
                 # Send SSE event

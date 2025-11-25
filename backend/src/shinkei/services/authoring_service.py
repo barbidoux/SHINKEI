@@ -180,6 +180,23 @@ class AuthoringService:
         insertion_mode: str = "append",
         insert_after_beat_id: Optional[str] = None,
         insert_at_position: Optional[int] = None,
+        # LLM parameters
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+        top_p: float = 0.9,
+        frequency_penalty: float = 0.0,
+        presence_penalty: float = 0.0,
+        top_k: Optional[int] = None,
+        # Narrative style parameters
+        target_length_preset: Optional[str] = None,
+        target_length_words: Optional[int] = None,
+        pacing: Optional[str] = None,
+        tension_level: Optional[str] = None,
+        dialogue_density: Optional[str] = None,
+        description_richness: Optional[str] = None,
+        # Collaborative-specific parameters
+        proposal_diversity: float = 0.5,
+        variation_focus: Optional[str] = None,
         **provider_kwargs
     ) -> List[BeatProposal]:
         """
@@ -200,6 +217,20 @@ class AuthoringService:
             insertion_mode: Where to insert: "append", "insert_after", or "insert_at"
             insert_after_beat_id: Beat ID to insert after (for insert_after mode)
             insert_at_position: Position to insert at (for insert_at mode)
+            temperature: Base temperature for generation
+            max_tokens: Maximum tokens to generate
+            top_p: Nucleus sampling threshold
+            frequency_penalty: Frequency penalty for repetition
+            presence_penalty: Presence penalty for new topics
+            top_k: Top-k sampling (if supported)
+            target_length_preset: Length preset (short/medium/long)
+            target_length_words: Custom word count target
+            pacing: Narrative pacing (slow/medium/fast)
+            tension_level: Narrative tension (low/medium/high)
+            dialogue_density: Dialogue amount (minimal/moderate/heavy)
+            description_richness: Description detail (sparse/balanced/detailed)
+            proposal_diversity: How different proposals are (0=similar, 1=very different)
+            variation_focus: What aspect to vary (style/plot/tone/all)
             **provider_kwargs: Additional provider-specific arguments
 
         Returns:
@@ -226,16 +257,33 @@ class AuthoringService:
             story_id=story_id,
             user_id=user_id,
             num_proposals=num_proposals,
-            has_guidance=bool(user_guidance)
+            has_guidance=bool(user_guidance),
+            proposal_diversity=proposal_diversity,
+            variation_focus=variation_focus
         )
 
+        # Generate variation instructions based on variation_focus
+        variation_hints = self._build_variation_hints(variation_focus, num_proposals)
+
         # Generate proposals in parallel with varying temperature
-        # This produces more diverse options for the user
+        # Temperature variance is controlled by proposal_diversity
         tasks = []
         for i in range(num_proposals):
-            # Vary temperature: 0.7, 0.8, 0.9 for 3 proposals
-            temperature = 0.7 + (i * 0.1)
-            config = GenerationConfig(temperature=temperature)
+            # Calculate temperature variance: diversity=0 → same temp, diversity=1 → +/-0.3
+            temp_offset = (i - (num_proposals - 1) / 2) * (proposal_diversity * 0.2)
+            proposal_temp = max(0.0, min(2.0, temperature + temp_offset))
+
+            config = GenerationConfig(
+                temperature=proposal_temp,
+                max_tokens=max_tokens,
+                top_p=top_p,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
+                top_k=top_k
+            )
+
+            # Build guidance with variation hint if applicable
+            effective_guidance = self._build_variation_guidance(user_guidance, variation_hints, i)
 
             # Create coroutine for parallel execution
             task = self.narrative_service.generate_next_beat(
@@ -243,12 +291,18 @@ class AuthoringService:
                 user_id=user_id,
                 provider=provider,
                 model=model,
-                user_instructions=user_guidance,
+                user_instructions=effective_guidance,
                 target_event_id=target_event_id,
                 generation_config=config,
                 insertion_mode=insertion_mode,
                 insert_after_beat_id=insert_after_beat_id,
                 insert_at_position=insert_at_position,
+                target_length_preset=target_length_preset,
+                target_length_words=target_length_words,
+                pacing=pacing,
+                tension_level=tension_level,
+                dialogue_density=dialogue_density,
+                description_richness=description_richness,
                 **provider_kwargs
             )
             tasks.append(task)
@@ -326,6 +380,23 @@ class AuthoringService:
         local_time_label_manual: Optional[str] = None,
         world_event_id_mode: str = "automatic",
         world_event_id_manual: Optional[str] = None,
+        # LLM parameters
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+        top_p: float = 0.9,
+        frequency_penalty: float = 0.0,
+        presence_penalty: float = 0.0,
+        top_k: Optional[int] = None,
+        # Narrative style parameters
+        target_length_preset: Optional[str] = None,
+        target_length_words: Optional[int] = None,
+        pacing: Optional[str] = None,
+        tension_level: Optional[str] = None,
+        dialogue_density: Optional[str] = None,
+        description_richness: Optional[str] = None,
+        # Collaborative-specific parameters
+        proposal_diversity: float = 0.5,
+        variation_focus: Optional[str] = None,
         **provider_kwargs
     ):
         """
@@ -376,21 +447,39 @@ class AuthoringService:
             "collaborative_proposals_stream_started",
             story_id=story_id,
             user_id=user_id,
-            num_proposals=num_proposals
+            num_proposals=num_proposals,
+            proposal_diversity=proposal_diversity,
+            variation_focus=variation_focus
         )
+
+        # Generate variation instructions based on variation_focus
+        variation_hints = self._build_variation_hints(variation_focus, num_proposals)
 
         # Create tasks with different temperatures, wrapped with their index
         async def generate_with_index(index: int):
             """Wrapper to track which task is which."""
-            temperature = 0.7 + (index * 0.1)
-            config = GenerationConfig(temperature=temperature)
+            # Calculate temperature variance: diversity=0 → same temp, diversity=1 → +/-0.3
+            temp_offset = (index - (num_proposals - 1) / 2) * (proposal_diversity * 0.2)
+            proposal_temp = max(0.0, min(2.0, temperature + temp_offset))
+
+            config = GenerationConfig(
+                temperature=proposal_temp,
+                max_tokens=max_tokens,
+                top_p=top_p,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
+                top_k=top_k
+            )
+
+            # Build guidance with variation hint if applicable
+            effective_guidance = self._build_variation_guidance(user_guidance, variation_hints, index)
 
             beat = await self.narrative_service.generate_next_beat(
                 story_id=story_id,
                 user_id=user_id,
                 provider=provider,
                 model=model,
-                user_instructions=user_guidance,
+                user_instructions=effective_guidance,
                 target_event_id=target_event_id,
                 generation_config=config,
                 insertion_mode=insertion_mode,
@@ -405,6 +494,13 @@ class AuthoringService:
                 local_time_label_manual=local_time_label_manual,
                 world_event_id_mode=world_event_id_mode,
                 world_event_id_manual=world_event_id_manual,
+                # Narrative style parameters
+                target_length_preset=target_length_preset,
+                target_length_words=target_length_words,
+                pacing=pacing,
+                tension_level=tension_level,
+                dialogue_density=dialogue_density,
+                description_richness=description_richness,
                 **provider_kwargs
             )
             return index, beat
@@ -600,3 +696,84 @@ class AuthoringService:
             raise ValueError(f"Story {story_id} not found")
 
         return story
+
+    def _build_variation_hints(
+        self,
+        variation_focus: Optional[str],
+        num_proposals: int
+    ) -> List[str]:
+        """
+        Build variation hints for each proposal based on variation_focus.
+
+        Args:
+            variation_focus: What aspect to vary (style/plot/tone/all)
+            num_proposals: Number of proposals to generate
+
+        Returns:
+            List of variation hint strings, one per proposal
+        """
+        if not variation_focus:
+            return [""] * num_proposals
+
+        # Define variation hints for each focus type
+        hints = {
+            "style": [
+                "Use a formal, literary writing style.",
+                "Use a casual, conversational writing style.",
+                "Use a dramatic, cinematic writing style.",
+                "Use a poetic, evocative writing style.",
+                "Use a direct, minimalist writing style."
+            ],
+            "plot": [
+                "Focus on character development and internal conflict.",
+                "Advance the main plot with a significant event.",
+                "Explore a subplot or secondary character.",
+                "Create a turning point or revelation.",
+                "Build towards a climactic moment."
+            ],
+            "tone": [
+                "Use a lighter, more hopeful emotional tone.",
+                "Maintain a neutral, balanced emotional tone.",
+                "Use a darker, more tense emotional tone.",
+                "Use a reflective, contemplative tone.",
+                "Use an urgent, energetic tone."
+            ],
+            "all": [
+                "Vary the style, plot direction, and tone in this proposal.",
+                "Take a different approach to style, plot, and tone.",
+                "Explore an alternative narrative direction.",
+                "Create a distinct variation from other proposals.",
+                "Offer a unique perspective on this beat."
+            ]
+        }
+
+        focus_hints = hints.get(variation_focus, [""] * 5)
+
+        # Return hints for the number of proposals needed
+        return focus_hints[:num_proposals] + [""] * max(0, num_proposals - len(focus_hints))
+
+    def _build_variation_guidance(
+        self,
+        user_guidance: Optional[str],
+        variation_hints: List[str],
+        index: int
+    ) -> Optional[str]:
+        """
+        Build the effective guidance for a proposal, combining user guidance with variation hint.
+
+        Args:
+            user_guidance: User's original guidance
+            variation_hints: List of variation hints
+            index: Index of the current proposal
+
+        Returns:
+            Combined guidance string or None
+        """
+        hint = variation_hints[index] if index < len(variation_hints) else ""
+
+        if user_guidance and hint:
+            return f"{user_guidance}\n\n[Variation: {hint}]"
+        elif hint:
+            return f"[Variation: {hint}]"
+        else:
+            return user_guidance

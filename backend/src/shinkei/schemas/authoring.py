@@ -53,6 +53,96 @@ class ProposalRequest(BaseModel):
         description="Optional specific WorldEvent to write about"
     )
 
+    # === BASIC TAB: Length Control ===
+    target_length_preset: Optional[str] = Field(
+        None,
+        pattern="^(short|medium|long)$",
+        description="Length preset: short (~500 words), medium (~1000), long (~2000)"
+    )
+    target_length_words: Optional[int] = Field(
+        None,
+        ge=100,
+        le=10000,
+        description="Custom word count target (overrides preset if set)"
+    )
+
+    # === ADVANCED TAB: LLM Parameters ===
+    temperature: float = Field(
+        0.7,
+        ge=0.0,
+        le=2.0,
+        description="Creativity: 0=focused, 2=creative"
+    )
+    max_tokens: int = Field(
+        2000,
+        ge=100,
+        le=32000,
+        description="Maximum output length in tokens"
+    )
+    top_p: float = Field(
+        0.9,
+        ge=0.0,
+        le=1.0,
+        description="Nucleus sampling: considers top P% tokens"
+    )
+    frequency_penalty: float = Field(
+        0.0,
+        ge=-2.0,
+        le=2.0,
+        description="Reduces word repetition (-2 to 2)"
+    )
+    presence_penalty: float = Field(
+        0.0,
+        ge=-2.0,
+        le=2.0,
+        description="Encourages new topics (-2 to 2)"
+    )
+    top_k: Optional[int] = Field(
+        None,
+        ge=1,
+        le=100,
+        description="Top-K sampling: considers top K tokens"
+    )
+    ollama_host: Optional[str] = Field(
+        None,
+        description="Ollama server host (for Ollama provider)"
+    )
+
+    # === EXPERT TAB: Narrative Style Controls ===
+    pacing: Optional[str] = Field(
+        None,
+        pattern="^(slow|medium|fast)$",
+        description="Story pacing: slow=detailed, medium=balanced, fast=action-focused"
+    )
+    tension_level: Optional[str] = Field(
+        None,
+        pattern="^(low|medium|high)$",
+        description="Narrative tension: low=calm, medium=engaging, high=intense"
+    )
+    dialogue_density: Optional[str] = Field(
+        None,
+        pattern="^(minimal|moderate|heavy)$",
+        description="Dialogue amount: minimal=narration-focused, heavy=conversation-rich"
+    )
+    description_richness: Optional[str] = Field(
+        None,
+        pattern="^(sparse|balanced|detailed)$",
+        description="Descriptive detail: sparse=concise, detailed=immersive"
+    )
+
+    # === COLLABORATIVE-SPECIFIC: Proposal Variation ===
+    proposal_diversity: float = Field(
+        0.5,
+        ge=0.0,
+        le=1.0,
+        description="How different proposals are from each other: 0=similar, 1=very different"
+    )
+    variation_focus: Optional[str] = Field(
+        None,
+        pattern="^(style|plot|tone|all)$",
+        description="What aspect to vary between proposals: style, plot direction, tone, or all aspects"
+    )
+
     # Beat insertion parameters
     insertion_mode: str = Field(
         default="append",

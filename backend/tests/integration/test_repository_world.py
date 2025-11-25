@@ -12,7 +12,7 @@ async def test_world_crud(session):
     world_repo = WorldRepository(session)
     
     # Create User
-    user = await user_repo.create(UserCreate(email="world_owner@example.com", name="Owner"))
+    user = await user_repo.create(UserCreate(email="world_owner@example.com", name="Owner", password_hash="hashed_pw"))
     
     # Create World
     world_data = WorldCreate(

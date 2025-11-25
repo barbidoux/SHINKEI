@@ -127,6 +127,24 @@ class StoryBeat(Base):
     story: Mapped["Story"] = relationship("Story", back_populates="story_beats")
     world_event: Mapped[Optional["WorldEvent"]] = relationship("WorldEvent", back_populates="story_beats")
     modifications: Mapped[list["BeatModification"]] = relationship("BeatModification", back_populates="beat", cascade="all, delete-orphan", order_by="desc(BeatModification.created_at)")
+
+    # Entity relationships (Phase 6)
+    entity_mentions: Mapped[list["EntityMention"]] = relationship("EntityMention", back_populates="story_beat", cascade="all, delete-orphan")
+    first_appearance_characters: Mapped[list["Character"]] = relationship(
+        "Character",
+        foreign_keys="[Character.first_appearance_beat_id]",
+        back_populates="first_appearance_beat"
+    )
+    first_appearance_locations: Mapped[list["Location"]] = relationship(
+        "Location",
+        foreign_keys="[Location.first_appearance_beat_id]",
+        back_populates="first_appearance_beat"
+    )
+    established_relationships: Mapped[list["CharacterRelationship"]] = relationship(
+        "CharacterRelationship",
+        foreign_keys="[CharacterRelationship.first_established_beat_id]",
+        back_populates="first_established_beat"
+    )
     
     def __repr__(self) -> str:
         return f"<StoryBeat(id={self.id}, story_id={self.story_id}, order={self.order_index})>"

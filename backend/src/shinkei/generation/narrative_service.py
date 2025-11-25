@@ -9,6 +9,7 @@ from shinkei.models.beat_modification import BeatModification
 from shinkei.models.world import World
 from shinkei.models.world_event import WorldEvent
 from shinkei.utils.diff import generate_beat_modification_diff
+from shinkei.config import settings
 from shinkei.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -54,6 +55,13 @@ class NarrativeGenerationService:
         local_time_label_manual: Optional[str] = None,
         world_event_id_mode: str = "automatic",
         world_event_id_manual: Optional[str] = None,
+        # Narrative style parameters
+        target_length_preset: Optional[str] = None,
+        target_length_words: Optional[int] = None,
+        pacing: Optional[str] = None,
+        tension_level: Optional[str] = None,
+        dialogue_density: Optional[str] = None,
+        description_richness: Optional[str] = None,
         **provider_kwargs
     ) -> StoryBeat:
         """
@@ -86,15 +94,26 @@ class NarrativeGenerationService:
         user = await self._load_user(user_id)
         user_settings = user.settings or {}
 
+        # Calculate target_length from preset or custom value
+        target_length = target_length_words
+        if not target_length and target_length_preset:
+            length_presets = {"short": 500, "medium": 1000, "long": 2000}
+            target_length = length_presets.get(target_length_preset)
+
         # Build generation context from database models
         context = await self._build_context(
             story,
             user_instructions=user_instructions,
-            target_event_id=target_event_id
+            target_event_id=target_event_id,
+            target_length=target_length,
+            pacing=pacing,
+            tension_level=tension_level,
+            dialogue_density=dialogue_density,
+            description_richness=description_richness
         )
 
         # Apply user settings as defaults
-        effective_provider = provider or user_settings.get("llm_provider", "openai")
+        effective_provider = provider or user_settings.get("llm_provider") or settings.default_llm_provider
         effective_model = model or user_settings.get("llm_model")
         base_url = user_settings.get("llm_base_url")
 
@@ -226,6 +245,13 @@ class NarrativeGenerationService:
         user_instructions: Optional[str] = None,
         target_event_id: Optional[str] = None,
         generation_config: Optional[GenerationConfig] = None,
+        # Narrative style parameters
+        target_length_preset: Optional[str] = None,
+        target_length_words: Optional[int] = None,
+        pacing: Optional[str] = None,
+        tension_level: Optional[str] = None,
+        dialogue_density: Optional[str] = None,
+        description_richness: Optional[str] = None,
         **provider_kwargs
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
@@ -260,15 +286,26 @@ class NarrativeGenerationService:
         user = await self._load_user(user_id)
         user_settings = user.settings or {}
 
-        # Build generation context
+        # Calculate target_length from preset or custom value
+        target_length = target_length_words
+        if not target_length and target_length_preset:
+            length_presets = {"short": 500, "medium": 1000, "long": 2000}
+            target_length = length_presets.get(target_length_preset)
+
+        # Build generation context with narrative style parameters
         context = await self._build_context(
             story,
             user_instructions=user_instructions,
-            target_event_id=target_event_id
+            target_event_id=target_event_id,
+            target_length=target_length,
+            pacing=pacing,
+            tension_level=tension_level,
+            dialogue_density=dialogue_density,
+            description_richness=description_richness
         )
 
         # Apply user settings as defaults
-        effective_provider = provider or user_settings.get("llm_provider", "openai")
+        effective_provider = provider or user_settings.get("llm_provider") or settings.default_llm_provider
         effective_model = model or user_settings.get("llm_model")
         base_url = user_settings.get("llm_base_url")
 
@@ -465,7 +502,12 @@ class NarrativeGenerationService:
         self,
         story: Story,
         user_instructions: Optional[str] = None,
-        target_event_id: Optional[str] = None
+        target_event_id: Optional[str] = None,
+        target_length: Optional[int] = None,
+        pacing: Optional[str] = None,
+        tension_level: Optional[str] = None,
+        dialogue_density: Optional[str] = None,
+        description_richness: Optional[str] = None
     ) -> GenerationContext:
         """
         Build generation context from database models.
@@ -474,6 +516,11 @@ class NarrativeGenerationService:
             story: Story instance with world loaded
             user_instructions: Optional user guidance
             target_event_id: Optional target event ID
+            target_length: Target word count
+            pacing: Narrative pacing (slow/medium/fast)
+            tension_level: Narrative tension (low/medium/high)
+            dialogue_density: Dialogue amount (minimal/moderate/heavy)
+            description_richness: Description detail (sparse/balanced/detailed)
 
         Returns:
             GenerationContext instance
@@ -505,7 +552,7 @@ class NarrativeGenerationService:
                     "location": event.location or "Unknown"
                 }
 
-        # Build context
+        # Build context with narrative style parameters
         return GenerationContext(
             world_name=world.name,
             world_tone=world.tone or "neutral",
@@ -517,7 +564,12 @@ class NarrativeGenerationService:
             story_mode=story.mode.value,
             recent_beats=recent_beats_data,
             target_world_event=target_event,
-            user_instructions=user_instructions
+            user_instructions=user_instructions,
+            target_length=target_length,
+            pacing=pacing,
+            tension_level=tension_level,
+            dialogue_density=dialogue_density,
+            description_richness=description_richness
         )
 
     async def _get_recent_beats(self, story_id: str, limit: int = 5) -> list[StoryBeat]:
@@ -705,7 +757,7 @@ class NarrativeGenerationService:
         )
 
         # Apply user settings as defaults
-        effective_provider = provider or user_settings.get("llm_provider", "openai")
+        effective_provider = provider or user_settings.get("llm_provider") or settings.default_llm_provider
         effective_model = model or user_settings.get("llm_model")
         base_url = user_settings.get("llm_base_url")
 
@@ -839,7 +891,7 @@ class NarrativeGenerationService:
         user_settings = user.settings or {}
 
         # Apply user settings as defaults
-        effective_provider = provider or user_settings.get("llm_provider", "openai")
+        effective_provider = provider or user_settings.get("llm_provider") or settings.default_llm_provider
         effective_model = model or user_settings.get("llm_model")
 
         logger.info(
@@ -1170,7 +1222,7 @@ If no issues are found, respond with "COHERENT: No issues detected."
         user_settings = user.settings or {}
 
         # Apply user settings as defaults
-        effective_provider = provider or user_settings.get("llm_provider", "openai")
+        effective_provider = provider or user_settings.get("llm_provider") or settings.default_llm_provider
         effective_model = model or user_settings.get("llm_model")
         base_url = user_settings.get("llm_base_url")
 
@@ -1482,7 +1534,7 @@ If no events are relevant, respond with "NO_RELEVANT_EVENTS"
         user_settings = user.settings or {}
 
         # Apply user settings as defaults
-        effective_provider = provider or user_settings.get("llm_provider", "openai")
+        effective_provider = provider or user_settings.get("llm_provider") or settings.default_llm_provider
         effective_model = model or user_settings.get("llm_model")
         base_url = user_settings.get("llm_base_url")
 

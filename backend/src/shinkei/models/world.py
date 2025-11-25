@@ -106,6 +106,11 @@ class World(Base):
     world_events: Mapped[list["WorldEvent"]] = relationship(back_populates="world", cascade="all, delete-orphan")
     stories: Mapped[list["Story"]] = relationship("Story", back_populates="world", cascade="all, delete-orphan")
     conversations: Mapped[list["Conversation"]] = relationship("Conversation", back_populates="world", cascade="all, delete-orphan")
+
+    # Entity relationships (Phase 6)
+    characters: Mapped[list["Character"]] = relationship("Character", back_populates="world", cascade="all, delete-orphan")
+    locations: Mapped[list["Location"]] = relationship("Location", back_populates="world", cascade="all, delete-orphan")
+    character_relationships: Mapped[list["CharacterRelationship"]] = relationship("CharacterRelationship", back_populates="world", cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
         return f"<World(id={self.id}, name={self.name}, user_id={self.user_id})>"

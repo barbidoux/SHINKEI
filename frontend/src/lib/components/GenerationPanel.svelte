@@ -1,8 +1,18 @@
 <script lang="ts">
     import { api } from "$lib/api";
     import { auth } from "$lib/stores/auth";
-    import type { AuthoringMode, BeatResponse, GenerateBeatRequest } from "$lib/types";
+    import type {
+        AuthoringMode,
+        BeatResponse,
+        GenerateBeatRequest,
+        LengthPreset,
+        PacingOption,
+        TensionOption,
+        DialogueDensityOption,
+        DescriptionRichnessOption
+    } from "$lib/types";
     import CollaborativeProposalPanel from './CollaborativeProposalPanel.svelte';
+    import AIParameterTabs from './AIParameterTabs.svelte';
 
     export let storyId: string;
     export let storyMode: AuthoringMode = "manual";
@@ -21,8 +31,24 @@
     $: model = userSettings?.llm_model || "";
     $: ollama_host = userSettings?.llm_base_url || "";
     let user_instructions = "";
+
+    // Basic Tab: Length control
+    let targetLengthPreset: LengthPreset | null = null;
+    let targetLengthWords: number | null = null;
+
+    // Advanced Tab: LLM parameters
     let temperature = 0.7;
     let max_tokens = 8000;
+    let topP = 0.9;
+    let frequencyPenalty = 0.0;
+    let presencePenalty = 0.0;
+    let topK: number | null = null;
+
+    // Expert Tab: Narrative style
+    let pacing: PacingOption | null = null;
+    let tensionLevel: TensionOption | null = null;
+    let dialogueDensity: DialogueDensityOption | null = null;
+    let descriptionRichness: DescriptionRichnessOption | null = null;
 
     // Beat insertion controls
     let insertionMode: string = "append"; // "append" | "insert_after" | "insert_at"
@@ -85,10 +111,27 @@
         try {
             const requestBody: GenerateBeatRequest = {
                 provider,
+                insertion_mode: insertionMode,
+                // Advanced Tab: LLM parameters
                 temperature,
                 max_tokens,
-                insertion_mode: insertionMode,
+                top_p: topP,
+                frequency_penalty: frequencyPenalty,
+                presence_penalty: presencePenalty,
             };
+
+            // Basic Tab: Length control (only include if set)
+            if (targetLengthPreset) requestBody.target_length_preset = targetLengthPreset;
+            if (targetLengthWords) requestBody.target_length_words = targetLengthWords;
+
+            // Advanced Tab: Optional top_k
+            if (topK !== null) requestBody.top_k = topK;
+
+            // Expert Tab: Narrative style (only include if set)
+            if (pacing) requestBody.pacing = pacing;
+            if (tensionLevel) requestBody.tension_level = tensionLevel;
+            if (dialogueDensity) requestBody.dialogue_density = dialogueDensity;
+            if (descriptionRichness) requestBody.description_richness = descriptionRichness;
 
             // Add optional fields
             if (model) requestBody.model = model;
@@ -132,10 +175,27 @@
         try {
             const requestBody: GenerateBeatRequest = {
                 provider,
+                insertion_mode: insertionMode,
+                // Advanced Tab: LLM parameters
                 temperature,
                 max_tokens,
-                insertion_mode: insertionMode,
+                top_p: topP,
+                frequency_penalty: frequencyPenalty,
+                presence_penalty: presencePenalty,
             };
+
+            // Basic Tab: Length control (only include if set)
+            if (targetLengthPreset) requestBody.target_length_preset = targetLengthPreset;
+            if (targetLengthWords) requestBody.target_length_words = targetLengthWords;
+
+            // Advanced Tab: Optional top_k
+            if (topK !== null) requestBody.top_k = topK;
+
+            // Expert Tab: Narrative style (only include if set)
+            if (pacing) requestBody.pacing = pacing;
+            if (tensionLevel) requestBody.tension_level = tensionLevel;
+            if (dialogueDensity) requestBody.dialogue_density = dialogueDensity;
+            if (descriptionRichness) requestBody.description_richness = descriptionRichness;
 
             // Add optional fields
             if (model) requestBody.model = model;
@@ -453,75 +513,37 @@
                 </div>
             </div>
 
-            <!-- Advanced Parameters -->
-            <details class="mt-4">
-                <summary
-                    class="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:text-gray-900 dark:hover:text-gray-100"
+            <!-- Streaming Mode Toggle -->
+            <div class="flex items-center">
+                <input
+                    type="checkbox"
+                    id="streaming"
+                    bind:checked={streaming}
+                    class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400"
+                />
+                <label
+                    for="streaming"
+                    class="ml-2 block text-sm text-gray-700 dark:text-gray-300"
                 >
-                    Advanced Parameters
-                </summary>
-                <div class="mt-3 space-y-4 pl-4 border-l-2 border-gray-200 dark:border-gray-700">
-                    <!-- Streaming Mode -->
-                    <div class="flex items-center">
-                        <input
-                            type="checkbox"
-                            id="streaming"
-                            bind:checked={streaming}
-                            class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400"
-                        />
-                        <label
-                            for="streaming"
-                            class="ml-2 block text-sm text-gray-700 dark:text-gray-300"
-                        >
-                            Enable streaming (see generation live)
-                        </label>
-                    </div>
+                    Enable streaming (see generation live)
+                </label>
+            </div>
 
-                    <!-- Temperature -->
-                    <div>
-                        <label
-                            for="temperature"
-                            class="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                            Temperature: {temperature}
-                        </label>
-                        <input
-                            type="range"
-                            id="temperature"
-                            bind:value={temperature}
-                            min="0"
-                            max="2"
-                            step="0.1"
-                            class="mt-1 block w-full"
-                        />
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            Lower = more focused, Higher = more creative
-                        </p>
-                    </div>
-
-                    <!-- Max Tokens -->
-                    <div>
-                        <label
-                            for="max_tokens"
-                            class="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                            Max Tokens
-                        </label>
-                        <input
-                            type="number"
-                            id="max_tokens"
-                            bind:value={max_tokens}
-                            min="100"
-                            max="32000"
-                            step="500"
-                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm"
-                        />
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            Maximum tokens to generate (up to 32K for long-form content)
-                        </p>
-                    </div>
-                </div>
-            </details>
+            <!-- AI Parameter Tabs (Basic/Advanced/Expert) -->
+            <AIParameterTabs
+                bind:targetLengthPreset
+                bind:targetLengthWords
+                bind:temperature
+                bind:maxTokens={max_tokens}
+                bind:topP
+                bind:frequencyPenalty
+                bind:presencePenalty
+                bind:topK
+                bind:pacing
+                bind:tensionLevel
+                bind:dialogueDensity
+                bind:descriptionRichness
+            />
 
             <!-- Streaming Content Display (while generating) -->
             {#if loading && streaming && streamingContent}

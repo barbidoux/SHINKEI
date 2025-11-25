@@ -12,15 +12,16 @@ logger = get_logger(__name__)
 class GenerationService:
     """Service for handling AI generation requests."""
 
-    def __init__(self, provider: str = "openai"):
+    def __init__(self, provider: Optional[str] = None):
         """
         Initialize generation service.
-        
+
         Args:
-            provider: AI provider to use (default: openai)
+            provider: AI provider to use (default: from settings.default_llm_provider)
         """
-        self.provider = provider
-        self.model = ModelFactory.create(provider)
+        self.default_provider = provider or settings.default_llm_provider
+        # Note: model instance is created per-request in generate_from_template
+        # to allow user_settings overrides
 
     async def generate_from_template(
         self,
@@ -53,7 +54,7 @@ class GenerationService:
             raise ValueError(f"Missing context variable: {e}")
             
         # Determine provider and model from settings if available
-        provider = self.provider
+        provider = self.default_provider
         model = model_override
         base_url = None
         
