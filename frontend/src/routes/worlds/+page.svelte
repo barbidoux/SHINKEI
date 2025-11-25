@@ -44,7 +44,7 @@
             const importData = JSON.parse(fileContent);
 
             // Import the world
-            const newWorld = await api.post('/worlds/import', importData);
+            const newWorld = await api.post<World>('/worlds/import', importData);
 
             alert('World imported successfully!');
             goto(`/worlds/${newWorld.id}`);

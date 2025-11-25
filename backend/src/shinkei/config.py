@@ -86,8 +86,8 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(default="")
     anthropic_api_key: str = Field(default="")
     ollama_host: str = Field(
-        default="http://localhost:11434",
-        description="Ollama server host URL (can be local or remote)"
+        default="http://host.docker.internal:11434",
+        description="Ollama server host URL (use host.docker.internal for Docker, localhost for local dev)"
     )
     ollama_default_model: str = Field(
         default="llama3",

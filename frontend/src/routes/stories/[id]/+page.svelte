@@ -297,6 +297,7 @@
             <div class="mb-8">
                 <GenerationPanel
                     storyId={storyId ?? ""}
+                    worldId={story.world_id}
                     storyMode={story.mode}
                     onBeatGenerated={() => window.location.reload()}
                 />
@@ -331,7 +332,7 @@
                     <div animate:flip={{ duration: flipDurationMs }}>
                         <DraggableBeatCard
                             {beat}
-                            {storyId}
+                            storyId={storyId ?? ""}
                             onModify={openModificationPanel}
                             onDelete={handleDeleteBeat}
                             onUpdate={() => window.location.reload()}

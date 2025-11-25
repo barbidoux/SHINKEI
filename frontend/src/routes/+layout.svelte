@@ -1,9 +1,11 @@
 <script lang="ts">
     import "../app.css";
     import { auth } from "$lib/stores/auth";
+    import { chatStore } from "$lib/stores/chat";
     import { onMount } from "svelte";
     import { goto } from "$app/navigation";
     import Toast from "$lib/components/Toast.svelte";
+    import { AIChatPanel } from "$lib/components/agent";
     import { applyTheme, type Theme } from "$lib/theme";
 
     let showUserMenu = false;
@@ -31,24 +33,52 @@
         showUserMenu = false;
         goto("/login");
     }
+
+    function toggleChat() {
+        chatStore.toggle();
+    }
 </script>
 
-<div class="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
-    <nav class="bg-white dark:bg-gray-800 shadow-sm transition-colors">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div class="flex h-16 justify-between">
-                <div class="flex">
-                    <div class="flex flex-shrink-0 items-center">
-                        <a href="/" class="text-xl font-bold text-indigo-600 dark:text-indigo-400"
-                            >Shinkei</a
+<div class="h-screen flex flex-col bg-gray-100 dark:bg-gray-900 transition-colors overflow-hidden">
+    <!-- Top Navigation -->
+    <nav class="flex-shrink-0 bg-white dark:bg-gray-800 shadow-sm transition-colors z-20">
+        <div class="px-4 sm:px-6 lg:px-8">
+            <div class="flex h-14 justify-between">
+                <div class="flex items-center">
+                    <!-- Story Pilot Chat toggle button (only when authenticated) -->
+                    {#if $auth.isAuthenticated}
+                        <button
+                            on:click={toggleChat}
+                            class="mr-4 flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all duration-200 {$chatStore.isOpen
+                                ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md'
+                                : 'bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 text-indigo-700 dark:text-indigo-300 hover:from-indigo-200 hover:to-purple-200 dark:hover:from-indigo-900/60 dark:hover:to-purple-900/60'}"
+                            title="{$chatStore.isOpen ? 'Hide' : 'Show'} Story Pilot AI Assistant"
                         >
+                            <svg
+                                class="w-5 h-5 {$chatStore.isOpen ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'}"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                            </svg>
+                            <span class="text-sm font-medium hidden sm:inline">Story Pilot</span>
+                            {#if $chatStore.isOpen}
+                                <svg class="w-4 h-4 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                                </svg>
+                            {/if}
+                        </button>
+                    {/if}
+
+                    <div class="flex flex-shrink-0 items-center">
+                        <a href="/" class="text-xl font-bold text-indigo-600 dark:text-indigo-400">Shinkei</a>
                     </div>
                     <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
                         <a
                             href="/worlds"
                             class="inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-700 dark:hover:text-gray-100"
-                            >Worlds</a
-                        >
+                        >Worlds</a>
                     </div>
                 </div>
                 <div class="hidden sm:ml-6 sm:flex sm:items-center gap-4">
@@ -100,24 +130,35 @@
                         <a
                             href="/login"
                             class="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 mr-4"
-                            >Sign in</a
-                        >
+                        >Sign in</a>
                         <a
                             href="/register"
                             class="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                            >Sign up</a
-                        >
+                        >Sign up</a>
                     {/if}
                 </div>
             </div>
         </div>
     </nav>
 
-    <main class="py-10">
-        <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-            <slot />
-        </div>
-    </main>
+    <!-- Main content area with optional sidebar -->
+    <div class="flex-1 flex overflow-hidden">
+        <!-- AI Chat Panel Sidebar -->
+        {#if $auth.isAuthenticated && $chatStore.isOpen}
+            <aside class="w-80 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg z-10">
+                <AIChatPanel />
+            </aside>
+        {/if}
+
+        <!-- Main content -->
+        <main class="flex-1 overflow-y-auto">
+            <div class="py-8">
+                <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                    <slot />
+                </div>
+            </div>
+        </main>
+    </div>
 </div>
 
 <!-- Global Toast Notifications -->

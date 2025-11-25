@@ -51,11 +51,14 @@ class OllamaModel(NarrativeModel):
         Generate text using Ollama.
         """
         model = request.model or self.model
-        
+
         # Ollama supports system prompt in options or as a message
+        # Add explicit instruction to respond with text, not function calls
+        system_content = request.system_prompt or ""
+        system_content += "\n\nIMPORTANT: Respond with plain text only. Do not use function calls or tool calls."
+
         messages = []
-        if request.system_prompt:
-            messages.append({"role": "system", "content": request.system_prompt})
+        messages.append({"role": "system", "content": system_content})
         messages.append({"role": "user", "content": request.prompt})
 
         options = {
@@ -66,15 +69,32 @@ class OllamaModel(NarrativeModel):
         if request.max_tokens:
             options["num_predict"] = request.max_tokens
 
+        logger.debug("ollama_generate_request", model=model, messages_count=len(messages))
+
         response = await self.client.chat(
             model=model,
             messages=messages,
             options=options,
         )
 
-        content = response['message']['content']
+        # Log full response structure for debugging
+        logger.debug("ollama_response_keys", keys=list(response.keys()) if isinstance(response, dict) else "not_dict")
+
+        content = response.get('message', {}).get('content', '')
+
+        # Handle case where model returns tool calls instead of content
+        if not content:
+            tool_calls = response.get('message', {}).get('tool_calls', [])
+            if tool_calls:
+                logger.warning("ollama_returned_tool_calls", tool_calls=tool_calls)
+                # Convert tool calls to a text response explaining the issue
+                content = f"I tried to use a tool ({tool_calls[0].get('function', {}).get('name', 'unknown')}), but I'll respond directly instead:\n\nI'm Story Pilot, your AI assistant for narrative worldbuilding. How can I help you with your world today?"
+            else:
+                logger.warning("ollama_empty_content_no_tools", response_message=response.get('message', {}))
+                content = "I'm here to help with your narrative world. What would you like to know or create?"
+
         finish_reason = response.get('done_reason', 'stop')
-        
+
         # Ollama usage stats might vary
         usage = {
             "prompt_eval_count": response.get('prompt_eval_count', 0),

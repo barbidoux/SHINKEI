@@ -111,6 +111,13 @@ class World(Base):
     characters: Mapped[list["Character"]] = relationship("Character", back_populates="world", cascade="all, delete-orphan")
     locations: Mapped[list["Location"]] = relationship("Location", back_populates="world", cascade="all, delete-orphan")
     character_relationships: Mapped[list["CharacterRelationship"]] = relationship("CharacterRelationship", back_populates="world", cascade="all, delete-orphan")
+
+    # Story Pilot relationships
+    agent_personas: Mapped[list["AgentPersona"]] = relationship("AgentPersona", back_populates="world", cascade="all, delete-orphan")
+    coherence_settings: Mapped[Optional["WorldCoherenceSettings"]] = relationship("WorldCoherenceSettings", back_populates="world", uselist=False, cascade="all, delete-orphan")
+    graph_nodes: Mapped[list["WorldGraphNode"]] = relationship("WorldGraphNode", back_populates="world", cascade="all, delete-orphan")
+    graph_edges: Mapped[list["WorldGraphEdge"]] = relationship("WorldGraphEdge", back_populates="world", cascade="all, delete-orphan")
+    graph_sync_status: Mapped[Optional["WorldGraphSyncStatus"]] = relationship("WorldGraphSyncStatus", back_populates="world", uselist=False, cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
         return f"<World(id={self.id}, name={self.name}, user_id={self.user_id})>"

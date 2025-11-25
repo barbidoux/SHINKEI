@@ -15,6 +15,7 @@
     import AIParameterTabs from './AIParameterTabs.svelte';
 
     export let storyId: string;
+    export let worldId: string;
     export let storyMode: AuthoringMode = "manual";
     export let onBeatGenerated: () => void;
 
@@ -360,6 +361,7 @@
         <!-- Collaborative Mode: Use multi-proposal panel -->
         <CollaborativeProposalPanel
             {storyId}
+            {worldId}
             onProposalUsed={handleAccept}
         />
     {:else if !generatedBeat}

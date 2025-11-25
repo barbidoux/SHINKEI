@@ -12,34 +12,36 @@ export interface Toast {
 function createToastStore() {
     const { subscribe, update } = writable<Toast[]>([]);
 
+    function show(type: ToastType, message: string, duration = 5000) {
+        const id = Math.random().toString(36).substring(7);
+        const toast: Toast = { id, type, message, duration };
+
+        update(toasts => [...toasts, toast]);
+
+        if (duration > 0) {
+            setTimeout(() => {
+                update(toasts => toasts.filter(t => t.id !== id));
+            }, duration);
+        }
+    }
+
     return {
         subscribe,
-        show: (type: ToastType, message: string, duration = 5000) => {
-            const id = Math.random().toString(36).substring(7);
-            const toast: Toast = { id, type, message, duration };
-
-            update(toasts => [...toasts, toast]);
-
-            if (duration > 0) {
-                setTimeout(() => {
-                    update(toasts => toasts.filter(t => t.id !== id));
-                }, duration);
-            }
-        },
+        show,
         remove: (id: string) => {
             update(toasts => toasts.filter(t => t.id !== id));
         },
         success: (message: string, duration?: number) => {
-            createToastStore().show('success', message, duration);
+            show('success', message, duration);
         },
         error: (message: string, duration?: number) => {
-            createToastStore().show('error', message, duration);
+            show('error', message, duration);
         },
         info: (message: string, duration?: number) => {
-            createToastStore().show('info', message, duration);
+            show('info', message, duration);
         },
         warning: (message: string, duration?: number) => {
-            createToastStore().show('warning', message, duration);
+            show('warning', message, duration);
         }
     };
 }

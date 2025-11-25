@@ -300,7 +300,7 @@
         <!-- Coherence Checker -->
         {#if beat}
             <div class="mt-6">
-                <CoherenceChecker storyId={storyId} beatId={beatId} />
+                <CoherenceChecker storyId={storyId ?? ""} beatId={beatId ?? ""} />
             </div>
         {/if}
 
@@ -316,8 +316,8 @@
                 <EntitySuggestionsPanel
                     bind:this={entitySuggestionsPanel}
                     worldId={worldId}
-                    storyId={storyId}
-                    beatId={beatId}
+                    storyId={storyId ?? ""}
+                    beatId={beatId ?? ""}
                     beatContent={content}
                     on:apply={(e) => {
                         console.log('Entities to apply:', e.detail.suggestions);

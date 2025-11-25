@@ -30,14 +30,14 @@
             description: "Smaller event with localized impact",
         },
         {
-            value: "backstory",
-            label: "Backstory",
-            description: "Historical event in the world's past",
+            value: "background",
+            label: "Background Event",
+            description: "Ongoing conditions or ambient events in the world",
         },
         {
-            value: "milestone",
-            label: "Milestone",
-            description: "Key turning point or achievement",
+            value: "catalyst",
+            label: "Catalyst Event",
+            description: "Events that trigger story progression",
         },
     ];
 

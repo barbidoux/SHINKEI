@@ -4,7 +4,7 @@ from shinkei.api.v1.endpoints import (
     users, worlds, world_events, stories, story_beats,
     generation, narrative, auth, health,
     characters, locations, entity_mentions, character_relationships,
-    entity_generation
+    entity_generation, agent
 )
 
 api_router = APIRouter()
@@ -27,3 +27,6 @@ api_router.include_router(character_relationships.router, prefix="/worlds", tags
 
 # Phase 11: AI-Powered Entity Generation
 api_router.include_router(entity_generation.router, tags=["entity-generation"])
+
+# Story Pilot: AI Chat Assistant
+api_router.include_router(agent.router, tags=["agent"])

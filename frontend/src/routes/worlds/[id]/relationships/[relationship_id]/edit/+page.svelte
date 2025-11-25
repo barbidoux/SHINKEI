@@ -9,6 +9,7 @@
 		CharacterRelationshipUpdate,
 		RelationshipStrength
 	} from '$lib/types/relationship';
+	import type { Character } from '$lib/types/character';
 	import {
 		RELATIONSHIP_STRENGTH_OPTIONS,
 		COMMON_RELATIONSHIP_TYPES
@@ -47,8 +48,8 @@
 
 			// Load character names
 			const [charA, charB] = await Promise.all([
-				api.get(`/worlds/${worldId}/characters/${relationship.character_a_id}`),
-				api.get(`/worlds/${worldId}/characters/${relationship.character_b_id}`)
+				api.get<Character>(`/worlds/${worldId}/characters/${relationship.character_a_id}`),
+				api.get<Character>(`/worlds/${worldId}/characters/${relationship.character_b_id}`)
 			]);
 
 			characterAName = charA.name;

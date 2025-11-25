@@ -199,18 +199,11 @@
 			{:else if characters.length === 0}
 				<EmptyState
 					title="No characters found"
-					message={search || importance
+					description={search || importance
 						? 'Try adjusting your filters'
 						: 'Get started by creating your first character'}
-					actionLabel={search || importance ? 'Clear Filters' : 'Add Character'}
+					actionText={search || importance ? 'Clear Filters' : 'Add Character'}
 					actionHref={search || importance ? undefined : `/worlds/${worldId}/characters/new`}
-					on:action={() => {
-						if (search || importance) {
-							importance = null;
-							search = '';
-							handleFilterChange();
-						}
-					}}
 				/>
 			{:else}
 				<!-- Character Cards Grid -->

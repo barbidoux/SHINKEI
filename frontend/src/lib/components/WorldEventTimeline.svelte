@@ -12,9 +12,14 @@
     let container: HTMLElement;
     let timeline: Timeline | null = null;
 
+    // Extended WorldEvent type that may include computed fields
+    type WorldEventExtended = WorldEvent & { beat_count?: number };
+
     // Convert WorldEvents to Timeline items
     $: items = events.map((event): TimelineItem => {
-        const beatCountLabel = event.beat_count ? ` (${event.beat_count} beats)` : '';
+        // beat_count is an optional computed field that may be present in extended responses
+        const beatCount = (event as WorldEventExtended).beat_count;
+        const beatCountLabel = beatCount ? ` (${beatCount} beats)` : '';
         return {
             id: event.id,
             content: `${event.label_time || `t=${event.t}`}: ${event.summary}${beatCountLabel}`,
@@ -52,7 +57,8 @@
             showMinorLabels: true
         };
 
-        timeline = new Timeline(container, items, options);
+        // Cast to any to avoid type mismatch with vis-timeline's internal types
+        timeline = new Timeline(container, items, options as any);
 
         // Handle click events
         timeline.on('select', (properties) => {

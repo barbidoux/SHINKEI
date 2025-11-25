@@ -71,8 +71,14 @@
         }
     }
 
-    function getModeColor(mode: ModeOption): string {
-        const colors: Record<string, { bg: string; border: string; text: string }> = {
+    interface ModeColors {
+        bg: string;
+        border: string;
+        text: string;
+    }
+
+    function getModeColor(mode: ModeOption): ModeColors {
+        const colors: Record<string, ModeColors> = {
             indigo: {
                 bg: "bg-indigo-50",
                 border: "border-indigo-500",

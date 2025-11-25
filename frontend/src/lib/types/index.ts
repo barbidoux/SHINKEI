@@ -31,3 +31,6 @@ export * from "./location";
 
 // Relationship types
 export * from "./relationship";
+
+// Agent/Chat types
+export * from "./agent";

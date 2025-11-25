@@ -298,7 +298,7 @@
         {:else if viewMode === "graph"}
             <!-- Dependency Graph View -->
             <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <EventDependencyGraph {worldId} apiUrl={import.meta.env.VITE_API_URL} />
+                <EventDependencyGraph worldId={worldId ?? ""} apiUrl={import.meta.env.VITE_API_URL} />
             </div>
         {:else}
             <!-- List View -->

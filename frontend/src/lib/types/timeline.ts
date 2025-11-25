@@ -21,10 +21,13 @@ export interface TimelineOptions {
     moveable?: boolean;
     zoomMin?: number;
     zoomMax?: number;
-    orientation?: 'top' | 'bottom' | 'both';
+    orientation?: 'top' | 'bottom' | 'both' | { axis?: 'top' | 'bottom' | 'both'; item?: 'top' | 'bottom' };
     showCurrentTime?: boolean;
     showMajorLabels?: boolean;
     showMinorLabels?: boolean;
+    stack?: boolean;
+    verticalScroll?: boolean;
+    zoomKey?: 'altKey' | 'ctrlKey' | 'shiftKey' | 'metaKey';
     timeAxis?: {
         scale?: string;
         step?: number;

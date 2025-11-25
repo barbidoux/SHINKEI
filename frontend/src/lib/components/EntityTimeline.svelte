@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { Timeline } from 'vis-timeline/standalone';
-	import type { TimelineOptions } from 'vis-timeline/types';
+	import type { TimelineOptions } from '$lib/types/timeline';
 	import 'vis-timeline/styles/vis-timeline-graph2d.css';
 
 	export let entityId: string;
@@ -112,7 +112,8 @@
 			zoomKey: 'ctrlKey'
 		};
 
-		timeline = new Timeline(container, items, groups, options);
+		// Cast to any to avoid type mismatch with vis-timeline's internal types
+		timeline = new Timeline(container, items, groups, options as any);
 
 		// Handle click events - navigate to story beat
 		timeline.on('select', (properties) => {
